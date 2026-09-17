@@ -1,0 +1,118 @@
+{
+  "entities": {
+    "Task": {
+      "title": "Task",
+      "description": "A collaborative task item for Clinica Chutro operations",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique task identifier"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the task"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed explanation of the task"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status: pendiente, en_progreso, revision, completada, etc."
+        },
+        "priority": {
+          "type": "string",
+          "description": "Priority: urgente, alta, media, baja"
+        },
+        "category": {
+          "type": "string",
+          "description": "Department category: quirurgico, enfermeria, administracion, compras, direccion"
+        },
+        "assignedTo": {
+          "type": "string",
+          "description": "User ID of the assignee"
+        },
+        "assignedBy": {
+          "type": "string",
+          "description": "User ID of who assigned the task"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation ISO timestamp"
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "Due date"
+        }
+      },
+      "required": ["id", "title", "status", "priority", "category", "assignedTo"]
+    },
+    "Note": {
+      "title": "Note",
+      "description": "Sticky note on the team whiteboard",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique note identifier"
+        },
+        "text": {
+          "type": "string",
+          "description": "Content of the note"
+        },
+        "author": {
+          "type": "string",
+          "description": "Name of author"
+        },
+        "color": {
+          "type": "string",
+          "description": "Color theme of the sticky note"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        }
+      },
+      "required": ["id", "text", "author"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Clinica Chutro team member profile",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "User identifier"
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the team member"
+        },
+        "role": {
+          "type": "string",
+          "description": "Medical or administrative role"
+        },
+        "accessLevel": {
+          "type": "string",
+          "description": "Access level: full_access or standard"
+        }
+      },
+      "required": ["id", "name", "role", "accessLevel"]
+    }
+  },
+  "firestore": {
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Operational tasks collection shared by clinic staff"
+    },
+    "/notes/{noteId}": {
+      "schema": "Note",
+      "description": "Team whiteboard notes collection"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Staff profiles and presence"
+    }
+  }
+}

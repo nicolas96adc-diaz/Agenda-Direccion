@@ -1,0 +1,6 @@
+{
+  "name": "Clínica Chutro - Gestión Operativa",
+  "description": "Sistema de gestión operativa de tareas y Foco del Día para Dirección en Clínica Chutro.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
