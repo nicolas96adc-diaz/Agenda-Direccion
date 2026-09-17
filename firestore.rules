@@ -46,8 +46,11 @@ service cloud.firestore {
 
       function canClaimTask() {
         return isAvailable(resource.data)
+          && ('assigneeUid' in request.resource.data)
           && request.resource.data.assigneeUid == request.auth.uid
+          && ('assigneeId' in request.resource.data)
           && request.resource.data.assigneeId == profile().appUserId
+          && ('assignee' in request.resource.data)
           && request.resource.data.assignee == profile().name
           && taskChangesOnly([
             'status',
@@ -66,9 +69,13 @@ service cloud.firestore {
         return resource.data.status != 'RESUELTA'
           && request.resource.data.status != 'RESUELTA'
           && (
-            resource.data.assigneeUid == request.auth.uid
+            (
+              ('assigneeUid' in resource.data)
+              && resource.data.assigneeUid == request.auth.uid
+            )
             || (
               isAvailable(resource.data)
+              && ('createdByUid' in resource.data)
               && resource.data.createdByUid == request.auth.uid
               && isAvailable(request.resource.data)
             )
@@ -94,9 +101,16 @@ service cloud.firestore {
       allow create: if isActiveTeamMember()
         && isValidId(taskId)
         && request.resource.data.id == taskId
+        && ('createdByUid' in request.resource.data)
         && request.resource.data.createdByUid == request.auth.uid
         && isAvailable(request.resource.data)
-        && request.resource.data.status == 'PENDIENTE';
+        && request.resource.data.status == 'PENDIENTE'
+        && (
+          !('inFocus' in request.resource.data)
+          || request.resource.data.inFocus == false
+          || isAdmin()
+          || isOperations()
+        );
 
       allow update: if isActiveTeamMember()
         && isValidId(taskId)
