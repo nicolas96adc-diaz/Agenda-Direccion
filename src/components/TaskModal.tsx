@@ -1,8 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { X, Trash2, CheckCircle2, Ban, Flame, ShieldAlert, History, Clock, Undo2, Users } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import {
+  Ban,
+  CheckCircle2,
+  Clock,
+  Flame,
+  History,
+  ShieldAlert,
+  Trash2,
+  Undo2,
+  X,
+} from 'lucide-react';
 import { useTasks } from '../context/TaskContext';
 import { Priority, TaskStatus } from '../types';
-import { getTodayDateString, formatAuditDateTime } from '../utils/dateUtils';
+import { formatAuditDateTime, getTodayDateString } from '../utils/dateUtils';
 
 export const TaskModal: React.FC = () => {
   const {
@@ -10,10 +20,10 @@ export const TaskModal: React.FC = () => {
     closeModal,
     editingTask,
     defaultModalStatus,
+    defaultModalInFocus,
     addTask,
     updateTask,
     deleteTask,
-    users,
     currentUser,
     getUserPermissions,
     claimTask,
@@ -23,20 +33,25 @@ export const TaskModal: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<Priority>('NORMAL');
-  const [status, setStatus] = useState<TaskStatus>(defaultModalStatus);
+  const [status, setStatus] = useState<TaskStatus>('PENDIENTE');
   const [dueDate, setDueDate] = useState(getTodayDateString());
   const [dueTime, setDueTime] = useState('12:00');
-  const [assignee, setAssignee] = useState<string>('');
   const [blockReason, setBlockReason] = useState('');
-  const [inFocus, setInFocus] = useState(true);
+  const [inFocus, setInFocus] = useState(false);
   const [showAuditLogs, setShowAuditLogs] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
-  // Compute permissions for active user on this task
-  const perms = getUserPermissions(editingTask);
+  const permissions = getUserPermissions(editingTask);
+  const isReadOnly = !!editingTask && !permissions.canEditTask;
+  const assignee = editingTask?.assignee || '';
+  const isAvailable =
+    !assignee ||
+    ['disponible', 'sin asignar', 'sin responsable'].includes(assignee.trim().toLowerCase());
 
   useEffect(() => {
     setIsConfirmingDelete(false);
+    setShowAuditLogs(false);
+
     if (editingTask) {
       setTitle(editingTask.title);
       setDescription(editingTask.description || '');
@@ -44,31 +59,29 @@ export const TaskModal: React.FC = () => {
       setStatus(editingTask.status);
       setDueDate(editingTask.dueDate || getTodayDateString());
       setDueTime(editingTask.dueTime || '');
-      setAssignee(editingTask.assignee || '');
       setBlockReason(editingTask.blockReason || '');
       setInFocus(!!editingTask.inFocus);
-      setShowAuditLogs(false);
-    } else {
-      setTitle('');
-      setDescription('');
-      setPriority('NORMAL');
-      setStatus(defaultModalStatus);
-      setDueDate(getTodayDateString());
-      setDueTime('12:00');
-      setAssignee(''); // Initially no responsible -> Disponible
-      setBlockReason('');
-      setInFocus(defaultModalStatus !== 'RESUELTA');
-      setShowAuditLogs(false);
+      return;
     }
-  }, [editingTask, defaultModalStatus, isModalOpen, currentUser]);
+
+    setTitle('');
+    setDescription('');
+    setPriority('NORMAL');
+    setStatus(defaultModalStatus);
+    setDueDate(getTodayDateString());
+    setDueTime('12:00');
+    setBlockReason('');
+    setInFocus(defaultModalInFocus);
+  }, [editingTask?.id, isModalOpen, defaultModalStatus, defaultModalInFocus]);
 
   if (!isModalOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     if (!title.trim()) return;
 
     if (editingTask) {
+      if (!permissions.canEditTask) return;
       updateTask(
         editingTask.id,
         {
@@ -78,86 +91,69 @@ export const TaskModal: React.FC = () => {
           status,
           dueDate,
           dueTime: dueTime || undefined,
-          assignee: assignee || '',
-          blockReason: status === 'BLOQUEADA' ? (blockReason.trim() || 'Esperando validación de Dirección') : undefined,
-          inFocus,
+          blockReason:
+            status === 'BLOQUEADA'
+              ? blockReason.trim() || 'Esperando validación de Dirección'
+              : undefined,
+          inFocus: permissions.canToggleFocus ? inFocus : editingTask.inFocus,
         },
         true
       );
-    } else {
-      addTask({
-        title: title.trim(),
-        description: description.trim() || undefined,
-        priority,
-        status,
-        dueDate,
-        dueTime: dueTime || undefined,
-        assignee: '', // Initially no responsible -> Disponible
-        blockReason: status === 'BLOQUEADA' ? (blockReason.trim() || 'Esperando validación de Dirección') : undefined,
-        inFocus,
-      });
+      return;
     }
+
+    addTask({
+      title: title.trim(),
+      description: description.trim() || undefined,
+      priority,
+      status: 'PENDIENTE',
+      dueDate,
+      dueTime: dueTime || undefined,
+      assignee: '',
+      blockReason: undefined,
+      inFocus: permissions.canToggleFocus ? inFocus : false,
+    });
   };
 
   const handleQuickResolve = () => {
-    const newStatus: TaskStatus = status === 'RESUELTA' ? 'EN_PROCESO' : 'RESUELTA';
-    setStatus(newStatus);
-    if (editingTask) {
-      updateTask(editingTask.id, { status: newStatus }, false);
-    }
+    if (!editingTask || !permissions.canResolveTask) return;
+    const nextStatus: TaskStatus = status === 'RESUELTA' ? 'EN_PROCESO' : 'RESUELTA';
+    setStatus(nextStatus);
+    updateTask(editingTask.id, { status: nextStatus });
   };
 
   const handleQuickBlock = () => {
-    const newStatus: TaskStatus = status === 'BLOQUEADA' ? 'EN_PROCESO' : 'BLOQUEADA';
-    setStatus(newStatus);
-    const defaultReason = 'Esperando validación de Dirección';
-    const newReason = newStatus === 'BLOQUEADA' ? (blockReason.trim() || defaultReason) : undefined;
-    if (newStatus === 'BLOQUEADA' && !blockReason.trim()) {
-      setBlockReason(defaultReason);
-    }
-    if (editingTask) {
-      updateTask(
-        editingTask.id,
-        {
-          status: newStatus,
-          blockReason: newReason,
-        },
-        false
-      );
-    }
+    if (!editingTask || !permissions.canBlockTask) return;
+    const nextStatus: TaskStatus = status === 'BLOQUEADA' ? 'EN_PROCESO' : 'BLOQUEADA';
+    const reason = blockReason.trim() || 'Esperando validación de Dirección';
+    setStatus(nextStatus);
+    if (nextStatus === 'BLOQUEADA' && !blockReason.trim()) setBlockReason(reason);
+    updateTask(editingTask.id, {
+      status: nextStatus,
+      blockReason: nextStatus === 'BLOQUEADA' ? reason : undefined,
+    });
   };
-
-  const handleConfirmDelete = () => {
-    if (!editingTask) return;
-    deleteTask(editingTask.id);
-  };
-
-  const isFieldsDisabled = !!editingTask && !perms.canEditTask;
 
   return (
     <div
       id="task-modal-backdrop"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs"
       onClick={closeModal}
     >
       <div
         id="task-modal-container"
         className="bg-white rounded-2xl shadow-[0_20px_50px_rgba(15,23,42,0.14)] border border-slate-200/80 w-full max-w-lg overflow-hidden flex flex-col max-h-[92vh]"
-        onClick={e => e.stopPropagation()}
+        onClick={event => event.stopPropagation()}
       >
-        {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-b from-slate-50/60 to-white">
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-                {editingTask ? 'Detalle de Tarea' : 'Nueva Tarea Operativa'}
-              </h2>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5 font-medium">
-              Clínica Chutro • Dirección
-            </p>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+              {editingTask ? 'Detalle de Tarea' : 'Nueva Tarea Operativa'}
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5 font-medium">Clínica Chutro • Dirección</p>
           </div>
           <button
+            type="button"
             onClick={closeModal}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
             aria-label="Cerrar modal"
@@ -166,77 +162,63 @@ export const TaskModal: React.FC = () => {
           </button>
         </div>
 
-        {/* Read-Only or Permission notice banner if restricted */}
-        {editingTask && perms.restrictionReason && (
+        {editingTask && permissions.restrictionReason && (
           <div className="px-6 py-2.5 bg-amber-50 border-b border-amber-200/70 flex items-center gap-2 text-xs text-amber-800">
             <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>{perms.restrictionReason}</span>
+            <span>{permissions.restrictionReason}</span>
           </div>
         )}
 
-        {/* Modal Form Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
-          {/* Title */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
               Título de la tarea <span className="text-rose-500">*</span>
             </label>
             <input
-              type="text"
               id="input-task-title"
+              type="text"
               required
-              disabled={isFieldsDisabled}
+              disabled={isReadOnly}
               value={title}
-              onChange={e => setTitle(e.target.value)}
+              onChange={event => setTitle(event.target.value)}
               placeholder="Ej: Validar presupuesto de insumos médicos"
-              className={`w-full px-3.5 py-2.5 border rounded-xl font-semibold text-sm sm:text-base transition-all placeholder:text-slate-400 ${
-                isFieldsDisabled
+              className={`w-full px-3.5 py-2.5 border rounded-xl font-semibold text-sm sm:text-base transition-all ${
+                isReadOnly
                   ? 'bg-slate-100 text-slate-600 border-slate-200 cursor-not-allowed'
-                  : 'bg-slate-50/70 border-slate-200/90 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400'
+                  : 'bg-slate-50/70 border-slate-200/90 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300'
               }`}
-              autoFocus={!isFieldsDisabled}
+              autoFocus={!isReadOnly}
             />
           </div>
 
-          {/* Description */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Descripción operativa{' '}
-              <span className="text-slate-400 font-normal">
-                {isFieldsDisabled && perms.canAddCommentOrNote ? '(Podés agregar notas)' : '(opcional)'}
-              </span>
+              Descripción <span className="text-slate-400 font-normal">(opcional)</span>
             </label>
             <textarea
               id="input-task-description"
               rows={2}
-              disabled={isFieldsDisabled && !perms.canAddCommentOrNote}
+              disabled={isReadOnly}
               value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Detalles relevantes, números de expediente o requerimientos de Dirección..."
-              className={`w-full px-3.5 py-2 border rounded-xl text-xs sm:text-sm transition-all placeholder:text-slate-400 resize-none ${
-                isFieldsDisabled && !perms.canAddCommentOrNote
+              onChange={event => setDescription(event.target.value)}
+              placeholder="Detalles relevantes..."
+              className={`w-full px-3.5 py-2 border rounded-xl text-xs sm:text-sm resize-none ${
+                isReadOnly
                   ? 'bg-slate-100 text-slate-600 border-slate-200 cursor-not-allowed'
-                  : 'bg-slate-50/70 border-slate-200/90 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400'
+                  : 'bg-slate-50/70 border-slate-200/90 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300'
               }`}
             />
           </div>
 
-          {/* Row: Prioridad & Estado */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Prioridad
-              </label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Prioridad</label>
               <select
                 id="select-task-priority"
-                disabled={isFieldsDisabled}
+                disabled={isReadOnly}
                 value={priority}
-                onChange={e => setPriority(e.target.value as Priority)}
-                className={`w-full px-3 py-2 border rounded-xl text-xs sm:text-sm font-semibold transition-all ${
-                  isFieldsDisabled
-                    ? 'bg-slate-100 text-slate-600 border-slate-200 cursor-not-allowed'
-                    : 'bg-slate-50/70 border-slate-200/90 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400 cursor-pointer'
-                }`}
+                onChange={event => setPriority(event.target.value as Priority)}
+                className="w-full px-3 py-2 border rounded-xl text-xs sm:text-sm font-semibold bg-slate-50/70 border-slate-200/90 disabled:bg-slate-100 disabled:cursor-not-allowed"
               >
                 <option value="BAJA">Baja</option>
                 <option value="NORMAL">Normal</option>
@@ -246,268 +228,188 @@ export const TaskModal: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Estado
-              </label>
-              <select
-                id="select-task-status"
-                disabled={isFieldsDisabled && !perms.canBlockTask}
-                value={status}
-                onChange={e => setStatus(e.target.value as TaskStatus)}
-                className={`w-full px-3 py-2 border rounded-xl text-xs sm:text-sm font-semibold transition-all ${
-                  isFieldsDisabled && !perms.canBlockTask
-                    ? 'bg-slate-100 text-slate-600 border-slate-200 cursor-not-allowed'
-                    : 'bg-slate-50/70 border-slate-200/90 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400 cursor-pointer'
-                }`}
-              >
-                <option value="PENDIENTE">Pendiente</option>
-                <option value="EN_PROCESO">En proceso</option>
-                <option value="BLOQUEADA">Bloqueada</option>
-                <option value="RESUELTA" disabled={!perms.canResolveTask}>
-                  Resuelta {!perms.canResolveTask ? '(Requiere autorización)' : ''}
-                </option>
-              </select>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Estado</label>
+              {editingTask ? (
+                <select
+                  id="select-task-status"
+                  disabled={isReadOnly && !permissions.canBlockTask}
+                  value={status}
+                  onChange={event => setStatus(event.target.value as TaskStatus)}
+                  className="w-full px-3 py-2 border rounded-xl text-xs sm:text-sm font-semibold bg-slate-50/70 border-slate-200/90 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                >
+                  {permissions.canEditTask && <option value="PENDIENTE">Pendiente</option>}
+                  {permissions.canEditTask && <option value="EN_PROCESO">En proceso</option>}
+                  {permissions.canBlockTask && <option value="BLOQUEADA">Bloqueada</option>}
+                  <option value="RESUELTA" disabled={!permissions.canResolveTask}>
+                    Resuelta
+                  </option>
+                </select>
+              ) : (
+                <div className="w-full px-3 py-2 border rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 border-slate-200 text-slate-600">
+                  Pendiente
+                </div>
+              )}
             </div>
           </div>
 
-          {/* If Blocked: Motivo de bloqueo */}
-          {status === 'BLOQUEADA' && (
+          {status === 'BLOQUEADA' && editingTask && (
             <div className="p-3.5 bg-rose-50/70 border border-rose-200/80 rounded-xl space-y-1.5">
               <label className="block text-xs font-bold text-rose-800 uppercase tracking-wide">
                 Motivo del bloqueo
               </label>
               <input
-                type="text"
                 id="input-task-block-reason"
-                disabled={isFieldsDisabled && !perms.canBlockTask}
+                type="text"
+                disabled={!permissions.canBlockTask}
                 value={blockReason}
-                onChange={e => setBlockReason(e.target.value)}
-                placeholder="Ej: Esperando validación médica, Falta firma directiva..."
-                className="w-full px-3 py-2 bg-white border border-rose-200 rounded-lg text-xs sm:text-sm text-rose-900 focus:outline-none focus:ring-2 focus:ring-rose-400/30"
+                onChange={event => setBlockReason(event.target.value)}
+                placeholder="Ej: Falta firma directiva..."
+                className="w-full px-3 py-2 bg-white border border-rose-200 rounded-lg text-xs sm:text-sm text-rose-900 disabled:bg-slate-100"
               />
             </div>
           )}
 
-          {/* Row: Fecha & Hora de vencimiento */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Fecha de vencimiento
-              </label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Fecha</label>
               <input
-                type="date"
                 id="input-task-due-date"
-                disabled={isFieldsDisabled}
+                type="date"
+                disabled={isReadOnly}
                 value={dueDate}
-                onChange={e => setDueDate(e.target.value)}
-                className={`w-full px-3 py-2 border rounded-xl text-xs sm:text-sm transition-all ${
-                  isFieldsDisabled
-                    ? 'bg-slate-100 text-slate-600 border-slate-200 cursor-not-allowed'
-                    : 'bg-slate-50/70 border-slate-200/90 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400 cursor-pointer'
-                }`}
+                onChange={event => setDueDate(event.target.value)}
+                className="w-full px-3 py-2 border rounded-xl text-xs sm:text-sm bg-slate-50/70 border-slate-200/90 disabled:bg-slate-100"
               />
             </div>
-
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Hora límite <span className="text-slate-400 font-normal">(opcional)</span>
               </label>
               <input
-                type="time"
                 id="input-task-due-time"
-                disabled={isFieldsDisabled}
+                type="time"
+                disabled={isReadOnly}
                 value={dueTime}
-                onChange={e => setDueTime(e.target.value)}
-                className={`w-full px-3 py-2 border rounded-xl text-xs sm:text-sm transition-all ${
-                  isFieldsDisabled
-                    ? 'bg-slate-100 text-slate-600 border-slate-200 cursor-not-allowed'
-                    : 'bg-slate-50/70 border-slate-200/90 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400 cursor-pointer'
-                }`}
+                onChange={event => setDueTime(event.target.value)}
+                className="w-full px-3 py-2 border rounded-xl text-xs sm:text-sm bg-slate-50/70 border-slate-200/90 disabled:bg-slate-100"
               />
             </div>
           </div>
 
-          {/* Row: Responsabilidad en Pizarra & Foco */}
-          <div className="space-y-3.5">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Responsabilidad en Pizarra
-              </label>
-
-              {!editingTask ? (
-                <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl">
-                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-800">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Disponible (sin responsable inicial)</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                    La tarea se publicará en la pizarra sin responsable. Cualquier integrante podrá tomarla haciendo clic en <strong>“Me hago cargo”</strong>.
-                  </p>
-                </div>
-              ) : !assignee || assignee.toLowerCase() === 'disponible' || assignee.toLowerCase() === 'sin asignar' ? (
-                <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl flex items-center justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-800">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <span>Disponible</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      Pendiente de que un integrante tome la tarea
-                    </p>
-                  </div>
-
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">A cargo de</label>
+            {!editingTask ? (
+              <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl text-xs font-bold text-emerald-800">
+                Disponible — cualquier integrante puede usar “Me hago cargo”.
+              </div>
+            ) : isAvailable ? (
+              <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl flex items-center justify-between gap-3">
+                <span className="text-xs font-bold text-emerald-800">Disponible</span>
+                {permissions.canClaimTask && (
                   <button
-                    type="button"
                     id="btn-modal-me-hago-cargo"
-                    onClick={() => {
-                      claimTask(editingTask.id, currentUser);
-                      setAssignee(currentUser.name);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-[#142136] hover:bg-emerald-600 text-white transition-all shadow-2xs active:scale-[0.98] cursor-pointer shrink-0"
-                    title={`Hacerme cargo de esta tarea voluntariamente como ${currentUser.name}`}
+                    type="button"
+                    onClick={() => claimTask(editingTask.id, currentUser)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-[#142136] hover:bg-emerald-600 text-white transition-all cursor-pointer"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Me hago cargo</span>
+                    Me hago cargo
                   </button>
-                </div>
-              ) : (
-                <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
-                  <div>
-                    <span className="text-[11px] text-slate-400 font-medium block">
-                      Estado operativo:
-                    </span>
-                    <span className="text-xs sm:text-sm font-black text-slate-900">
-                      A cargo de: {assignee}
-                    </span>
-                  </div>
-
+                )}
+              </div>
+            ) : (
+              <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
+                <span className="text-xs sm:text-sm font-black text-slate-900">{assignee}</span>
+                {permissions.canReleaseTask && (
                   <button
-                    type="button"
                     id="btn-modal-release-task"
-                    onClick={() => {
-                      releaseTask(editingTask.id);
-                      setAssignee('');
-                    }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:text-amber-800 hover:bg-amber-50 rounded-xl border border-slate-200/80 hover:border-amber-200 transition-colors cursor-pointer shrink-0"
-                    title="Dejar de hacerme cargo (la tarea vuelve a quedar disponible para el equipo)"
+                    type="button"
+                    onClick={() => releaseTask(editingTask.id)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:text-amber-800 hover:bg-amber-50 rounded-xl border border-slate-200/80 cursor-pointer"
                   >
                     <Undo2 className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Dejar de hacerme cargo</span>
+                    Liberar
                   </button>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label
-                htmlFor="checkbox-task-focus"
-                className="flex items-center gap-2.5 p-2.5 rounded-xl border select-none transition-colors bg-slate-50/60 border-slate-200/60 hover:bg-slate-50 cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  id="checkbox-task-focus"
-                  checked={inFocus}
-                  onChange={e => setInFocus(e.target.checked)}
-                  className="w-4 h-4 rounded text-blue-900 focus:ring-blue-800 border-slate-300 cursor-pointer"
-                />
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                  <Flame className={`w-4 h-4 ${inFocus ? 'text-rose-500 fill-rose-500' : 'text-slate-400'}`} />
-                  <span>Prioridad en Foco de hoy</span>
-                </div>
-              </label>
-            </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Quick Action Badges if editing */}
-          {editingTask && (perms.canResolveTask || perms.canBlockTask) && (
+          {permissions.canToggleFocus && (
+            <label
+              htmlFor="checkbox-task-focus"
+              className="flex items-center gap-2.5 p-2.5 rounded-xl border select-none bg-slate-50/60 border-slate-200/60 hover:bg-slate-50 cursor-pointer"
+            >
+              <input
+                id="checkbox-task-focus"
+                type="checkbox"
+                checked={inFocus}
+                onChange={event => setInFocus(event.target.checked)}
+                className="w-4 h-4 rounded cursor-pointer"
+              />
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                <Flame className={`w-4 h-4 ${inFocus ? 'text-rose-500 fill-rose-500' : 'text-slate-400'}`} />
+                Prioridad en Foco de hoy
+              </div>
+            </label>
+          )}
+
+          {editingTask && (permissions.canResolveTask || permissions.canBlockTask) && (
             <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2">
-              {perms.canResolveTask && (
+              {permissions.canResolveTask && (
                 <button
-                  type="button"
                   id="btn-modal-quick-resolve"
+                  type="button"
                   onClick={handleQuickResolve}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                    status === 'RESUELTA'
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
-                  }`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border bg-white text-slate-700 border-slate-200 hover:bg-emerald-50 cursor-pointer"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{status === 'RESUELTA' ? 'Resuelta (Reabrir)' : 'Marcar Resuelta'}</span>
+                  {status === 'RESUELTA' ? 'Reabrir' : 'Marcar Resuelta'}
                 </button>
               )}
-
-              {perms.canBlockTask && (
+              {permissions.canBlockTask && status !== 'RESUELTA' && (
                 <button
-                  type="button"
                   id="btn-modal-quick-block"
+                  type="button"
                   onClick={handleQuickBlock}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                    status === 'BLOQUEADA'
-                      ? 'bg-rose-50 text-rose-800 border-rose-300'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200'
-                  }`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border bg-white text-slate-700 border-slate-200 hover:bg-rose-50 cursor-pointer"
                 >
                   <Ban className="w-3.5 h-3.5" />
-                  <span>{status === 'BLOQUEADA' ? 'Desbloquear tarea' : 'Informar Bloqueo'}</span>
+                  {status === 'BLOQUEADA' ? 'Desbloquear' : 'Informar Bloqueo'}
                 </button>
               )}
             </div>
           )}
 
-          {/* Traceability & Audit Section in Modal */}
           {editingTask && (
             <div className="pt-3 border-t border-slate-100">
               <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/70 text-xs space-y-1.5">
                 <div className="flex items-center justify-between text-slate-600 font-bold uppercase tracking-wider text-[10px]">
-                  <span>Trazabilidad y Auditoría</span>
-                  {editingTask.auditLog && editingTask.auditLog.length > 0 && (
+                  <span>Trazabilidad</span>
+                  {!!editingTask.auditLog?.length && (
                     <button
                       type="button"
-                      onClick={() => setShowAuditLogs(!showAuditLogs)}
+                      onClick={() => setShowAuditLogs(value => !value)}
                       className="text-blue-700 hover:underline cursor-pointer lowercase flex items-center gap-1"
                     >
                       <History className="w-3 h-3" />
-                      <span>{showAuditLogs ? 'ocultar bitácora' : `ver historial (${editingTask.auditLog.length})`}</span>
+                      {showAuditLogs ? 'ocultar historial' : `ver historial (${editingTask.auditLog.length})`}
                     </button>
                   )}
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-slate-600">
-                  <div>
-                    <span className="text-slate-400">Creado por:</span>{' '}
-                    <strong className="text-slate-800">{editingTask.createdBy || 'Rodrigo Bustos'}</strong>
-                    <div className="text-[11px] text-slate-400">
-                      {formatAuditDateTime(editingTask.createdAt)}
-                    </div>
-                  </div>
-
-                  <div>
-                    <span className="text-slate-400">Última modif.:</span>{' '}
-                    <strong className="text-slate-800">{editingTask.lastModifiedBy || editingTask.createdBy || 'Rodrigo Bustos'}</strong>
-                    <div className="text-[11px] text-slate-400">
-                      {formatAuditDateTime(editingTask.updatedAt)}
-                    </div>
-                  </div>
-
-                  {editingTask.closedBy && (
-                    <div className="sm:col-span-2 text-emerald-700">
-                      <span className="text-slate-400">Cerrado por:</span>{' '}
-                      <strong>{editingTask.closedBy}</strong> el {formatAuditDateTime(editingTask.resolvedAt)}
-                    </div>
-                  )}
+                <div className="text-slate-600">
+                  <span className="text-slate-400">Creado por:</span>{' '}
+                  <strong className="text-slate-800">{editingTask.createdBy}</strong>{' '}
+                  <span className="text-slate-400">· {formatAuditDateTime(editingTask.createdAt)}</span>
                 </div>
-
-                {/* Expanded Audit Log inside Modal */}
-                {showAuditLogs && editingTask.auditLog && editingTask.auditLog.length > 0 && (
+                {showAuditLogs && !!editingTask.auditLog?.length && (
                   <div className="mt-2 pt-2 border-t border-slate-200 space-y-1.5 max-h-36 overflow-y-auto">
-                    {editingTask.auditLog.map((log, i) => (
-                      <div key={i} className="flex items-baseline gap-1.5 text-[11px]">
-                        <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                    {editingTask.auditLog.map((log, index) => (
+                      <div key={`${log.timestamp}-${index}`} className="flex items-start gap-1.5 text-[11px]">
+                        <Clock className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
                         <span className="font-bold text-slate-700">{log.byUserName}</span>
                         <span className="text-[10px] uppercase font-bold text-slate-500">[{log.action}]</span>
-                        <span className="text-slate-400">{formatAuditDateTime(log.timestamp)}</span>
-                        {log.details && <span className="text-slate-600 truncate">• {log.details}</span>}
+                        <span className="text-slate-500">{log.details}</span>
                       </div>
                     ))}
                   </div>
@@ -516,38 +418,32 @@ export const TaskModal: React.FC = () => {
             </div>
           )}
 
-          {/* Modal Footer Buttons */}
           <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
-            {editingTask ? (
+            {editingTask && permissions.canDeleteTask ? (
               !isConfirmingDelete ? (
                 <button
-                  type="button"
                   id="btn-modal-delete"
+                  type="button"
                   onClick={() => setIsConfirmingDelete(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 cursor-pointer"
                 >
-                  <Trash2 className="w-4 h-4" />
-                  <span>Eliminar</span>
+                  <Trash2 className="w-4 h-4" /> Eliminar
                 </button>
               ) : (
-                <div
-                  id="delete-confirmation-container"
-                  className="inline-flex items-center gap-2 p-1.5 bg-rose-50 border border-rose-200 rounded-xl animate-in fade-in zoom-in-95 duration-150"
-                >
-                  <span className="text-xs font-medium text-rose-900 px-1">¿Eliminar esta tarea?</span>
+                <div className="inline-flex items-center gap-2 p-1.5 bg-rose-50 border border-rose-200 rounded-xl">
+                  <span className="text-xs font-medium text-rose-900 px-1">¿Eliminar?</span>
                   <button
                     type="button"
-                    id="btn-confirm-delete-cancel"
                     onClick={() => setIsConfirmingDelete(false)}
-                    className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:bg-white bg-white/80 border border-slate-200 transition-colors cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 bg-white border border-slate-200 cursor-pointer"
                   >
                     Cancelar
                   </button>
                   <button
-                    type="button"
                     id="btn-confirm-delete-execute"
-                    onClick={handleConfirmDelete}
-                    className="px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:scale-95 transition-all shadow-xs cursor-pointer"
+                    type="button"
+                    onClick={() => deleteTask(editingTask.id)}
+                    className="px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 cursor-pointer"
                   >
                     Eliminar
                   </button>
@@ -559,20 +455,22 @@ export const TaskModal: React.FC = () => {
 
             <div className="flex items-center gap-2 ml-auto">
               <button
-                type="button"
                 id="btn-modal-cancel"
+                type="button"
                 onClick={closeModal}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
               >
-                Cancelar
+                {isReadOnly ? 'Cerrar' : 'Cancelar'}
               </button>
-              <button
-                type="submit"
-                id="btn-modal-save"
-                className="px-4.5 py-2 rounded-xl text-xs font-bold text-white bg-[#142136] hover:bg-[#1e2f4a] active:scale-[0.98] transition-all shadow-xs cursor-pointer"
-              >
-                {editingTask ? 'Guardar Cambios' : 'Crear Tarea'}
-              </button>
+              {(!editingTask || permissions.canEditTask) && (
+                <button
+                  id="btn-modal-save"
+                  type="submit"
+                  className="px-4.5 py-2 rounded-xl text-xs font-bold text-white bg-[#142136] hover:bg-[#1e2f4a] cursor-pointer"
+                >
+                  {editingTask ? 'Guardar Cambios' : 'Crear Tarea'}
+                </button>
+              )}
             </div>
           </div>
         </form>

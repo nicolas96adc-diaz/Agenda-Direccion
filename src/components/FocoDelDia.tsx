@@ -26,33 +26,25 @@ export const FocoDelDia: React.FC = () => {
 
   const todayStr = getTodayDateString();
 
-  // Sort focus tasks by computed importance score
   const sortedFocusTasks = [...focusTasks].sort((a, b) => {
     const scoreA = calculateTaskUrgencyScore(a, todayStr);
     const scoreB = calculateTaskUrgencyScore(b, todayStr);
     return scoreB - scoreA;
   });
 
-  // Calculate dynamic column spans and hierarchical roles (primary dominant, secondary, standard)
   const { spans, roles } = calculateCardColumnSpans(sortedFocusTasks);
-
-  // Counter of tasks requiring action
   const actionRequiredCount = sortedFocusTasks.filter(t => t.status !== 'RESUELTA').length;
 
   return (
     <div className="space-y-4 sm:space-y-5 max-w-[1400px] mx-auto pb-6">
-      {/* Top Priorities Section Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 pt-1 pb-1">
         <div className="flex items-center gap-2">
           <h2 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-slate-700">
             Tareas prioritarias
           </h2>
-          <span className="text-xs font-semibold text-slate-400">
-            ({sortedFocusTasks.length})
-          </span>
+          <span className="text-xs font-semibold text-slate-400">({sortedFocusTasks.length})</span>
         </div>
 
-        {/* Action-Required Indicator */}
         {actionRequiredCount > 0 ? (
           <div
             id="action-required-counter"
@@ -74,7 +66,6 @@ export const FocoDelDia: React.FC = () => {
         )}
       </div>
 
-      {/* Task Board Grid: One Dominant Card, Secondaries, Standards */}
       {sortedFocusTasks.length > 0 ? (
         <div
           id="foco-cards-board"
@@ -85,11 +76,7 @@ export const FocoDelDia: React.FC = () => {
             const role = roles[task.id] || 'standard';
             return (
               <div key={task.id} className={spanClass}>
-                <TaskCard
-                  task={task}
-                  variant="hero"
-                  visualRole={role}
-                />
+                <TaskCard task={task} variant="hero" visualRole={role} />
               </div>
             );
           })}
@@ -104,7 +91,7 @@ export const FocoDelDia: React.FC = () => {
             Podés marcar cualquier tarea como Foco desde la Pizarra o crear una nueva tarea prioritaria.
           </p>
           <button
-            onClick={() => openCreateModal()}
+            onClick={() => openCreateModal('PENDIENTE', true)}
             className="inline-flex items-center gap-2 bg-[#142136] hover:bg-[#1e2f4a] text-white px-4 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer shadow-xs"
           >
             <Plus className="w-4 h-4" />
@@ -113,9 +100,7 @@ export const FocoDelDia: React.FC = () => {
         </div>
       )}
 
-      {/* 3 Bottom Panels with unified data and responsive 2x2 metric grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4 items-stretch">
-        {/* Panel 1: Bloqueos */}
         <section
           id="panel-bloqueos"
           className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex flex-col justify-between"
@@ -168,16 +153,13 @@ export const FocoDelDia: React.FC = () => {
               ) : (
                 <div className="py-6 px-3 text-center rounded-xl bg-slate-50/60 border border-dashed border-slate-200">
                   <CheckCircle2 className="w-4 h-4 text-emerald-500 mx-auto mb-1.5" />
-                  <p className="text-xs font-medium text-slate-500">
-                    Sin tareas bloqueadas actualmente
-                  </p>
+                  <p className="text-xs font-medium text-slate-500">Sin tareas bloqueadas actualmente</p>
                 </div>
               )}
             </div>
           </div>
         </section>
 
-        {/* Panel 2: Vence hoy */}
         <section
           id="panel-vence-hoy"
           className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex flex-col justify-between"
@@ -230,16 +212,13 @@ export const FocoDelDia: React.FC = () => {
               ) : (
                 <div className="py-6 px-3 text-center rounded-xl bg-slate-50/60 border border-dashed border-slate-200">
                   <Clock className="w-4 h-4 text-slate-400 mx-auto mb-1.5" />
-                  <p className="text-xs font-medium text-slate-500">
-                    Sin vencimientos programados para hoy
-                  </p>
+                  <p className="text-xs font-medium text-slate-500">Sin vencimientos programados para hoy</p>
                 </div>
               )}
             </div>
           </div>
         </section>
 
-        {/* Panel 3: Estado del día (Robust 2 x 2 grid for maximum readability) */}
         <section
           id="panel-estado-del-dia"
           className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex flex-col justify-between"
@@ -253,46 +232,22 @@ export const FocoDelDia: React.FC = () => {
               <span>Estado del día</span>
             </div>
 
-            {/* 2 × 2 Grid: Spacious, highly legible, semantic indicators */}
             <div className="grid grid-cols-2 gap-2.5 pt-3">
-              {/* Foco */}
               <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-50/90 border border-slate-200/70 hover:bg-slate-100/60 transition-colors">
-                <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none">
-                  {stats.foco}
-                </span>
-                <span className="text-[11px] font-bold text-slate-500 mt-1.5 uppercase tracking-wide">
-                  En foco
-                </span>
+                <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none">{stats.foco}</span>
+                <span className="text-[11px] font-bold text-slate-500 mt-1.5 uppercase tracking-wide">En foco</span>
               </div>
-
-              {/* Bloqueadas */}
               <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-rose-50/70 border border-rose-100 hover:bg-rose-50 transition-colors">
-                <span className="text-2xl sm:text-3xl font-black text-rose-700 tracking-tight leading-none">
-                  {stats.bloqueadas}
-                </span>
-                <span className="text-[11px] font-bold text-rose-700/80 mt-1.5 uppercase tracking-wide">
-                  Bloqueadas
-                </span>
+                <span className="text-2xl sm:text-3xl font-black text-rose-700 tracking-tight leading-none">{stats.bloqueadas}</span>
+                <span className="text-[11px] font-bold text-rose-700/80 mt-1.5 uppercase tracking-wide">Bloqueadas</span>
               </div>
-
-              {/* En curso */}
               <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-sky-50/70 border border-sky-100 hover:bg-sky-50 transition-colors">
-                <span className="text-2xl sm:text-3xl font-black text-sky-700 tracking-tight leading-none">
-                  {stats.enCurso}
-                </span>
-                <span className="text-[11px] font-bold text-sky-700/80 mt-1.5 uppercase tracking-wide">
-                  En curso
-                </span>
+                <span className="text-2xl sm:text-3xl font-black text-sky-700 tracking-tight leading-none">{stats.enCurso}</span>
+                <span className="text-[11px] font-bold text-sky-700/80 mt-1.5 uppercase tracking-wide">En curso</span>
               </div>
-
-              {/* Resueltas */}
               <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-emerald-50/70 border border-emerald-100 hover:bg-emerald-50 transition-colors">
-                <span className="text-2xl sm:text-3xl font-black text-emerald-700 tracking-tight leading-none">
-                  {stats.resueltas}
-                </span>
-                <span className="text-[11px] font-bold text-emerald-700/80 mt-1.5 uppercase tracking-wide">
-                  Resueltas
-                </span>
+                <span className="text-2xl sm:text-3xl font-black text-emerald-700 tracking-tight leading-none">{stats.resueltas}</span>
+                <span className="text-[11px] font-bold text-emerald-700/80 mt-1.5 uppercase tracking-wide">Resueltas</span>
               </div>
             </div>
           </div>
