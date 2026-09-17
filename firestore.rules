@@ -2,7 +2,6 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function isValidId(id) {
       return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -11,45 +10,135 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Operational tasks for Clínica Chutro (requires real team authentication)
+    function hasProfile() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isActiveTeamMember() {
+      return hasProfile()
+        && profile().active == true
+        && profile().uid == request.auth.uid;
+    }
+
+    function isAdmin() {
+      return isActiveTeamMember() && profile().appUserId == 'user-rodrigo';
+    }
+
+    function isOperations() {
+      return isActiveTeamMember()
+        && profile().appUserId in ['user-nicolas', 'user-noemi'];
+    }
+
+    function isAvailable(data) {
+      return !('assigneeUid' in data)
+        || data.assigneeUid == null
+        || data.assigneeUid == '';
+    }
+
     match /tasks/{taskId} {
-      allow read, write: if isSignedIn() && isValidId(taskId);
+      function taskChangesOnly(fields) {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+      }
+
+      function canClaimTask() {
+        return isAvailable(resource.data)
+          && request.resource.data.assigneeUid == request.auth.uid
+          && request.resource.data.assigneeId == profile().appUserId
+          && request.resource.data.assignee == profile().name
+          && taskChangesOnly([
+            'status',
+            'assignee',
+            'assigneeId',
+            'assigneeUid',
+            'lastModifiedBy',
+            'lastModifiedById',
+            'lastModifiedByUid',
+            'updatedAt',
+            'auditLog'
+          ]);
+      }
+
+      function canEditOwnTask() {
+        return resource.data.status != 'RESUELTA'
+          && request.resource.data.status != 'RESUELTA'
+          && (
+            resource.data.assigneeUid == request.auth.uid
+            || (
+              isAvailable(resource.data)
+              && resource.data.createdByUid == request.auth.uid
+              && isAvailable(request.resource.data)
+            )
+          )
+          && taskChangesOnly([
+            'title',
+            'description',
+            'priority',
+            'status',
+            'dueDate',
+            'dueTime',
+            'blockReason',
+            'lastModifiedBy',
+            'lastModifiedById',
+            'lastModifiedByUid',
+            'updatedAt',
+            'auditLog'
+          ]);
+      }
+
+      allow read: if isActiveTeamMember() && isValidId(taskId);
+
+      allow create: if isActiveTeamMember()
+        && isValidId(taskId)
+        && request.resource.data.id == taskId
+        && request.resource.data.createdByUid == request.auth.uid
+        && isAvailable(request.resource.data)
+        && request.resource.data.status == 'PENDIENTE';
+
+      allow update: if isActiveTeamMember()
+        && isValidId(taskId)
+        && (
+          isAdmin()
+          || isOperations()
+          || canClaimTask()
+          || canEditOwnTask()
+        );
+
+      allow delete: if isAdmin() && isValidId(taskId);
     }
 
-    // Memorias y notas del equipo (requiere autenticación real del personal)
     match /notes/{noteId} {
-      allow read, write: if isSignedIn() && isValidId(noteId);
+      allow read, create, update, delete: if isActiveTeamMember() && isValidId(noteId);
     }
 
-    match /memorias/{memoriaId} {
-      allow read, write: if isSignedIn() && isValidId(memoriaId);
-    }
-
-    match /conversaciones/{conversacionId} {
-      allow read, write: if isSignedIn() && isValidId(conversacionId);
-    }
-
-    // User profiles & presence (requires real team authentication)
     match /users/{userId} {
-      allow read, write: if isSignedIn() && isValidId(userId);
+      allow read: if isActiveTeamMember() && userId == request.auth.uid;
+      allow write: if false;
     }
 
-    // Patients collection (requires real team authentication)
-    match /pacientes/{pacienteId} {
-      allow read, write: if isSignedIn() && isValidId(pacienteId);
-    }
-
-    // Medical appointments collection (requires real team authentication)
-    match /turnos/{turnoId} {
-      allow read, write: if isSignedIn() && isValidId(turnoId);
-    }
-
-    // Connection test document (requires real team authentication)
     match /test/{docId} {
-      allow read, write: if isSignedIn() && isValidId(docId);
+      allow read, write: if isActiveTeamMember() && isValidId(docId);
     }
 
-    // Default catch-all: reject everything else
+    match /memorias/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /conversaciones/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /pacientes/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /turnos/{document=**} {
+      allow read, write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
