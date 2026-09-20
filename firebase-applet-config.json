@@ -1,12 +1,12 @@
 {
   "projectId": "clinica-chutro",
-  "appId": "1:654505421798:web:f273c2efbe42fe5fa30427",
+  "appId": "1:654505421798:web:75522a7c05c0348aa30427",
   "apiKey": "AIzaSyDTlcBc0Law5iRaRUaamBTn6bMFhzF40cc",
   "authDomain": "clinica-chutro.firebaseapp.com",
   "firestoreDatabaseId": "(default)",
   "storageBucket": "clinica-chutro.firebasestorage.app",
   "messagingSenderId": "654505421798",
   "measurementId": "",
-  "oAuthClientId": "",
+  "oAuthClientId": "654505421798-afjah25kkmdb6h29fs1hs78vjvq64c09.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

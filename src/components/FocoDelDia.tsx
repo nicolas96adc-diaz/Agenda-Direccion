@@ -243,7 +243,7 @@ export const FocoDelDia: React.FC = () => {
               </div>
               <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-sky-50/70 border border-sky-100 hover:bg-sky-50 transition-colors">
                 <span className="text-2xl sm:text-3xl font-black text-sky-700 tracking-tight leading-none">{stats.enCurso}</span>
-                <span className="text-[11px] font-bold text-sky-700/80 mt-1.5 uppercase tracking-wide">En curso</span>
+                <span className="text-[11px] font-bold text-sky-700/80 mt-1.5 uppercase tracking-wide">En proceso</span>
               </div>
               <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-emerald-50/70 border border-emerald-100 hover:bg-emerald-50 transition-colors">
                 <span className="text-2xl sm:text-3xl font-black text-emerald-700 tracking-tight leading-none">{stats.resueltas}</span>

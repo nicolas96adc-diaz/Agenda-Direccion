@@ -117,6 +117,12 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = onFirebaseAuthStateChanged(async user => {
+            console.info('[LOGIN_TRACE] AUTH_CONTEXT_STATE_CHANGED', {
+        authUid: user?.uid ?? null,
+        authEmail: user?.email ?? null,
+        hasAuthenticatedUser: Boolean(user),
+      });
+
       setFirebaseUser(user);
 
       if (!user) {
@@ -136,8 +142,24 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const emailMatches =
           profile?.email?.toLowerCase() === (user.email || '').toLowerCase();
 
-        if (!profile || !profile.active || !emailMatches) {
-          await signOutFirebase();
+                const profileExists = Boolean(profile);
+        const profileIsActive = profile?.active === true;
+        console.info('[LOGIN_TRACE] AUTH_CONTEXT_PROFILE_VALIDATIONS', {
+          authUid: user.uid,
+          authEmail: user.email ?? null,
+          profileExists,
+          emailMatches,
+          profileIsActive,
+          profile: profile ?? null,
+        });
+
+if (!profile || !profile.active || !emailMatches) {
+                    console.error('[LOGIN_TRACE] LOGIN_FAIL_REASON: auth_context_profile_validation', {
+            profileExists,
+            emailMatches,
+            profileIsActive,
+          });
+await signOutFirebase();
           return;
         }
 
@@ -148,7 +170,13 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
         setCurrentUserIdState(profile.id);
         setIsLoggedIn(true);
-        setActiveView('inicio');
+                console.info('[LOGIN_TRACE] LOGIN_SUCCESS', {
+          source: 'auth_context',
+          profileUid: profile.uid,
+          profileAppUserId: profile.appUserId,
+          activeView: 'inicio',
+        });
+setActiveView('inicio');
       } catch (error) {
         console.warn('No se pudo cargar el perfil Firebase:', error);
         await signOutFirebase();
@@ -222,7 +250,25 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isLoggedIn, firebaseUser]);
 
   const login = (profile: UserProfile) => {
+        const hasAuthCurrentUser = Boolean(auth.currentUser);
+    const profileUidMatchesAuth = profile.uid === auth.currentUser?.uid;
+    const profileIsActive = profile.active === true;
+    console.info('[LOGIN_TRACE] CONTEXT_LOGIN_VALIDATIONS', {
+      authUid: auth.currentUser?.uid ?? null,
+      profileUid: profile.uid,
+      profileAppUserId: profile.appUserId,
+      hasAuthCurrentUser,
+      profileUidMatchesAuth,
+      profileIsActive,
+    });
+
     if (!auth.currentUser || profile.uid !== auth.currentUser.uid || !profile.active) {
+            console.error('[LOGIN_TRACE] LOGIN_FAIL_REASON: context_login_validation', {
+        hasAuthCurrentUser,
+        profileUidMatchesAuth,
+        profileIsActive,
+      });
+
       return;
     }
     setUsers(
@@ -444,10 +490,18 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         : 'Quitada del Foco del Día';
     }
 
+    const blockReason =
+      targetTask.status === 'BLOQUEADA' && nextStatus !== 'BLOQUEADA'
+        ? undefined
+        : safeUpdates.blockReason !== undefined
+          ? safeUpdates.blockReason
+          : targetTask.blockReason;
+
     const nextTask: Task = {
       ...targetTask,
       ...safeUpdates,
       status: nextStatus,
+      blockReason,
       lastModifiedBy: currentUser.name,
       lastModifiedById: currentUser.id,
       lastModifiedByUid: firebaseUser?.uid || currentUser.uid,

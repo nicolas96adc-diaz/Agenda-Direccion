@@ -179,7 +179,7 @@ export const HistorialView: React.FC = () => {
                       disabled={!perms.canResolveTask}
                       title={
                         perms.canResolveTask
-                          ? 'Reabrir tarea y devolver a En Curso'
+                          ? 'Reabrir tarea y devolver a En Proceso'
                           : perms.restrictionReason || 'Permiso restringido'
                       }
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors shadow-2xs ${

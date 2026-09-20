@@ -123,7 +123,7 @@ export const designTokens = {
       metricText: 'text-amber-700',
     },
 
-    // Informativo / Hoy / En curso
+    // Informativo / Hoy / En proceso
     info: {
       bg: 'bg-white',
       border: 'border-slate-200/90 hover:border-sky-300',

@@ -95,14 +95,14 @@ export function getFirebaseDiagnosticInfo() {
 }
 
 export const TEAM_EMAILS: Record<string, string> = {
-  'user-rodrigo': 'rodrigo@clinicachutro.com',
+  'user-rodrigo': 'rbustos@sanarte.com.ar',
   'user-nicolas': 'nicolas.96.adc@gmail.com',
-  'user-noemi': 'noemi@clinicachutro.com',
-  'user-laura': 'laura@clinicachutro.com',
-  'user-gabriela': 'gabriela@clinicachutro.com',
-  'user-sebastian': 'sebastian@clinicachutro.com',
-  'user-lora': 'lora@clinicachutro.com',
-  'user-yasku': 'yasku@clinicachutro.com',
+  'user-noemi': 'noemí.bazan11@gmail.com',
+  'user-laura': 'lic.laufigueroa@gmail.com',
+  'user-gabriela': 'gabrielabordaquival2@gmail.com',
+  'user-sebastian': 'sebastianlegis@gmail.com',
+  'user-lora': 'richccv@gmail.com',
+  'user-yasku': 'aguss.cba@gmail.com',
 };
 
 export interface FirebaseAuthResult {
@@ -133,6 +133,13 @@ export async function authenticateTeamMemberWithFirebase(
 
   try {
     const credential = await signInWithEmailAndPassword(auth, email, cleanPassword);
+        console.info('[LOGIN_TRACE] FIREBASE_SIGN_IN_RESULT', {
+      requestedAppUserId: userId,
+      requestedEmail: email,
+      authUid: credential.user.uid,
+      authEmail: credential.user.email ?? null,
+    });
+
     return {
       success: true,
       uid: credential.user.uid,
@@ -141,6 +148,13 @@ export async function authenticateTeamMemberWithFirebase(
   } catch (error: any) {
     const errorCode = error?.code || 'auth/unknown';
     const rawMessage = error?.message || 'Error desconocido';
+        console.error('[LOGIN_TRACE] LOGIN_FAIL_REASON: firebase_auth_exception', {
+      requestedAppUserId: userId,
+      requestedEmail: email,
+      errorCode,
+      rawMessage,
+    });
+
 
     let message = `Firebase Auth [${errorCode}]: ${rawMessage}`;
     if (errorCode === 'auth/invalid-credential' || errorCode === 'auth/wrong-password') {

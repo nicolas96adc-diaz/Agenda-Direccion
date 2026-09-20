@@ -41,8 +41,8 @@ export function getPermissions(user: UserProfile, task?: Task | null): TaskPermi
   const ownsTask = isAssignedToUser || isOwnAvailableTask;
   const canEditOwn = isAdmin || isOperations || ownsTask;
   const canBlock = isAdmin || isOperations || ownsTask;
-  const canResolve = isAdmin || isOperations;
-  const canRelease = isAdmin || isOperations;
+  const canResolve = isAdmin || isOperations || ownsTask;
+  const canRelease = isAdmin || isOperations || ownsTask;
 
   return {
     canCreateTask: true,
