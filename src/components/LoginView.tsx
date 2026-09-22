@@ -96,7 +96,7 @@ export const LoginView: React.FC = () => {
         });
         await signOutFirebase();
         setError(
-          'La cuenta inició sesión, pero su perfil de Clínica Chutro no está activo o no coincide. Revisá /users/{uid} en Firestore.'
+          'Tu cuenta no está habilitada para usar Clínica Chutro. Pedí a Dirección que revise tu acceso.'
         );
         return;
       }
@@ -113,7 +113,7 @@ export const LoginView: React.FC = () => {
         message: loginError?.message || String(loginError),
       });
       await signOutFirebase();
-      setError('No se pudo verificar la identidad: ' + (loginError?.message || loginError));
+      setError('No pudimos verificar tu acceso. Revisá el nombre y la contraseña, o solicitá ayuda a Dirección.');
     } finally {
       setIsLoading(false);
     }
@@ -151,7 +151,7 @@ export const LoginView: React.FC = () => {
             </div>
             <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-sky-700">Clínica Chutro</p>
             <h1 className="text-3xl font-black tracking-tight text-[#10213d]">Ingresar al equipo</h1>
-            <p className="mt-3 text-sm leading-6 text-slate-500">Elegí tu perfil e ingresá la contraseña configurada en Firebase.</p>
+            <p className="mt-3 text-sm leading-6 text-slate-500">Elegí tu nombre e ingresá tu contraseña para continuar.</p>
           </div>
 
           <form className="space-y-5" onSubmit={handleLogin}>
