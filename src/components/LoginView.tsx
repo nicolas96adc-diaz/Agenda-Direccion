@@ -159,11 +159,11 @@ export const LoginView: React.FC = () => {
               <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-700"><UserRound size={16} aria-hidden="true" /> Tu nombre</span>
               <select id="login-user-select" value={selectedId} onChange={event => { setSelectedId(event.target.value); setPassword(''); setError(''); setResetMessage(''); }} className="min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base font-medium text-slate-800 outline-none transition focus:border-sky-600 focus:ring-4 focus:ring-sky-100">
                 <option value="">Seleccioná tu nombre</option>
-                {allowedUsers.map(user => <option key={user.id} value={user.id}>{user.name} ({user.role})</option>)}
+                {allowedUsers.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
               </select>
             </label>
 
-            {userFirebaseEmail && <div className="rounded-lg bg-sky-50/70 px-3 py-2 text-xs text-sky-800">Cuenta: <strong className="font-semibold">{userFirebaseEmail}</strong></div>}
+            
 
             <label className="block">
               <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-700"><LockKeyhole size={16} aria-hidden="true" /> Contraseña</span>
