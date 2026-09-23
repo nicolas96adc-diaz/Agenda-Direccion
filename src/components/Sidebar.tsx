@@ -77,24 +77,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Brand Header */}
       {isCollapsed ? (
         <div className="p-3 py-4 flex flex-col items-center gap-3 border-b border-slate-800/80">
-          <div
-            className="relative w-8 h-8 shrink-0 flex items-center justify-center cursor-pointer"
+          <button
+            type="button"
+            className="relative w-11 h-11 shrink-0 flex items-center justify-center rounded-lg hover:bg-slate-800/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
             onClick={onToggleCollapse}
-            title="Clínica Chutro - Dirección (Clic para expandir)"
+            title="Expandir menú"
+            aria-label="Expandir menú"
           >
             <div className="absolute top-0 w-2.5 h-2.5 bg-cyan-400 rounded-xs shadow-xs" />
             <div className="absolute bottom-0 w-2.5 h-2.5 bg-cyan-400 rounded-xs shadow-xs" />
             <div className="absolute left-0 w-2.5 h-2.5 bg-cyan-400 rounded-xs shadow-xs" />
             <div className="absolute right-0 w-2.5 h-2.5 bg-cyan-400 rounded-xs shadow-xs" />
             <div className="w-1.5 h-1.5 bg-[#142136] rounded-full z-10" />
-          </div>
+          </button>
 
           {onToggleCollapse && (
             <button
               id="btn-sidebar-toggle-expand"
               onClick={onToggleCollapse}
               title="Expandir menú"
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors cursor-pointer"
+              className="min-w-11 min-h-11 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors cursor-pointer"
               aria-label="Expandir menú"
             >
               <ChevronRight className="w-4 h-4" />
@@ -128,7 +130,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               id="btn-sidebar-toggle-collapse"
               onClick={onToggleCollapse}
               title="Contraer menú"
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors cursor-pointer shrink-0"
+              className="min-w-11 min-h-11 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors cursor-pointer shrink-0"
               aria-label="Contraer menú"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -173,7 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
 
                 {/* Floating Tooltip with zero delay */}
-                <div className="pointer-events-none absolute left-full ml-2.5 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 whitespace-nowrap z-50 flex items-center gap-2 border border-slate-700">
+                <div className="pointer-events-none absolute left-full ml-2.5 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-150 whitespace-nowrap z-50 flex items-center gap-2 border border-slate-700">
                   <span>{item.label}</span>
                   {item.badge !== undefined && (
                     <span
@@ -192,7 +194,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               key={item.id}
               id={`nav-${item.id}`}
               onClick={() => handleSelectView(item.id)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 text-left cursor-pointer ${
+              className={`w-full min-h-11 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${
                 isActive
                   ? 'bg-slate-700/60 text-white font-semibold shadow-xs'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
@@ -238,7 +240,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               type="button"
               id="btn-logout-sidebar-collapsed"
               onClick={logout}
-              className="p-2 text-slate-400 hover:text-rose-300 hover:bg-slate-800/70 rounded-lg transition-colors cursor-pointer"
+              className="min-w-11 min-h-11 flex items-center justify-center text-slate-400 hover:text-rose-300 hover:bg-slate-800/70 rounded-lg transition-colors cursor-pointer"
               title="Cerrar sesión"
               aria-label="Cerrar sesión"
             >
@@ -269,7 +271,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             type="button"
             id="btn-logout-sidebar"
             onClick={logout}
-            className="p-1.5 text-slate-400 hover:text-rose-300 hover:bg-slate-800/70 rounded-lg transition-colors cursor-pointer shrink-0"
+            className="min-w-11 min-h-11 flex items-center justify-center text-slate-400 hover:text-rose-300 hover:bg-slate-800/70 rounded-lg transition-colors cursor-pointer shrink-0"
             title="Cerrar sesión"
             aria-label="Cerrar sesión"
           >

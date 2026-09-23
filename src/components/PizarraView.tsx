@@ -205,7 +205,7 @@ export const PizarraView: React.FC = () => {
   return (
     <div className="space-y-6 sm:space-y-8 max-w-[1540px] mx-auto pb-12">
       {/* Top Header Card - Clean & Executive */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-7 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.04)] flex flex-col md:flex-row md:items-center justify-between gap-5">
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.04)] flex flex-col md:flex-row md:items-center justify-between gap-5">
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center shrink-0 shadow-sm">
             <Users className="w-6 h-6 stroke-[2]" />
@@ -213,20 +213,20 @@ export const PizarraView: React.FC = () => {
           <div>
             <div className="flex items-center gap-3 flex-wrap">
               <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                Pizarra Operativa
+                Pizarra
               </h2>
               <span className="px-3 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs">
                 {users.length} integrantes
               </span>
             </div>
             <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium max-w-2xl leading-relaxed">
-              Compromisos y tareas disponibles por integrante de Dirección.
+              Mirá qué está en curso, qué necesita responsable y qué requiere atención.
             </p>
           </div>
         </div>
 
         {/* Filters & Actions */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
           {/* Search */}
           <div className="relative w-full sm:w-64">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -235,8 +235,8 @@ export const PizarraView: React.FC = () => {
               id="input-pizarra-search"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Buscar en tareas o notas..."
-              className="w-full pl-10 pr-3.5 py-2 bg-slate-50/80 hover:bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all"
+              placeholder="Buscar tareas o anotaciones"
+              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50/80 py-2 pl-10 pr-3.5 text-sm text-slate-800 placeholder:text-slate-400 transition-all hover:bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
             />
           </div>
 
@@ -245,7 +245,7 @@ export const PizarraView: React.FC = () => {
             id="select-pizarra-user-filter"
             value={selectedUserFilter}
             onChange={e => setSelectedUserFilter(e.target.value)}
-            className="px-3.5 py-2 bg-slate-50/80 hover:bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm font-semibold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300 cursor-pointer"
+            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300 sm:w-auto cursor-pointer"
           >
             <option value="all">Ver todos los integrantes</option>
             {users.map(u => (
@@ -259,10 +259,10 @@ export const PizarraView: React.FC = () => {
           <button
             id="btn-pizarra-nueva-tarea"
             onClick={() => openCreateModal('PENDIENTE')}
-            className="inline-flex items-center gap-2 bg-[#142136] hover:bg-[#1e2f4a] text-white px-4 py-2 rounded-2xl text-xs font-bold tracking-wide transition-all shadow-sm active:scale-[0.98] cursor-pointer shrink-0"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#142136] px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#1e2f4a] active:scale-[0.98] cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>NUEVA TAREA</span>
+            <span>Nueva tarea</span>
           </button>
         </div>
       </div>
@@ -270,7 +270,7 @@ export const PizarraView: React.FC = () => {
       {/* SECTION: PIZARRA COMPARTIDA · TAREAS DISPONIBLES */}
       <div
         id="section-tareas-disponibles"
-        className="bg-gradient-to-br from-slate-900 via-[#142136] to-slate-900 text-white rounded-3xl p-6 sm:p-7 shadow-[0_8px_30px_rgba(15,23,42,0.15)] border border-slate-800"
+        className="bg-[#142136] text-white rounded-2xl p-5 sm:p-6 shadow-[0_8px_30px_rgba(15,23,42,0.15)] border border-slate-800"
       >
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-white/10">
           <div className="flex items-start gap-3">
@@ -292,20 +292,12 @@ export const PizarraView: React.FC = () => {
             </div>
           </div>
 
-          <div className="text-right shrink-0">
-            <span className="text-[11px] font-semibold text-slate-400 block">
-              Sesión activa:
-            </span>
-            <span className="text-xs sm:text-sm font-bold text-white">
-              {currentUser.name} ({currentUser.role})
-            </span>
-          </div>
         </div>
 
         {/* Clear slot to post a new task to the shared whiteboard */}
         <form
           onSubmit={handleCreateSharedTask}
-          className="mt-5 p-3 sm:p-3.5 rounded-2xl border-2 border-dashed border-white/20 hover:border-emerald-400/50 bg-white/5 hover:bg-white/10 transition-all flex items-center gap-2.5"
+          className="mt-5 flex flex-col gap-2 rounded-xl border border-white/15 bg-white/5 p-3 transition-colors focus-within:border-emerald-400/70 focus-within:bg-white/10 sm:flex-row sm:items-center sm:gap-2.5"
         >
           <Plus className="w-4 h-4 text-emerald-400 shrink-0 stroke-[2.5]" />
           <input
@@ -313,18 +305,20 @@ export const PizarraView: React.FC = () => {
             id="input-shared-whiteboard-task"
             value={sharedWhiteboardTaskTitle}
             onChange={e => setSharedWhiteboardTaskTitle(e.target.value)}
-            placeholder="+ Escribir nueva tarea disponible para el equipo..."
-            className="flex-1 bg-transparent text-xs sm:text-sm text-white placeholder:text-slate-400 focus:outline-none"
+            aria-label="Título de la tarea rápida disponible para el equipo"
+            placeholder="Escribí una tarea rápida para el equipo…"
+            className="min-h-10 w-full flex-1 bg-transparent text-sm text-white placeholder:text-slate-400 focus:outline-none"
           />
           <button
             type="submit"
             id="btn-submit-shared-task"
             title="Publicar tarea disponible en la pizarra"
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-colors cursor-pointer shrink-0 shadow-sm active:scale-[0.98]"
+            className="min-h-10 w-full rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 shadow-sm transition-colors hover:bg-emerald-400 active:scale-[0.98] sm:w-auto cursor-pointer shrink-0"
           >
-            Publicar
+            Crear tarea rápida
           </button>
         </form>
+        <p className="mt-2 text-xs leading-relaxed text-slate-300">Queda disponible para el equipo, vence hoy a las 18:00 y aparece en Foco de hoy. Para definir otro plazo, usá “Nueva tarea”.</p>
 
         {/* Grid of Available Tasks */}
         <div className="mt-5">
@@ -396,15 +390,15 @@ export const PizarraView: React.FC = () => {
             <div
               key={user.id}
               id={`person-panel-${user.id}`}
-              className="bg-white rounded-3xl border border-slate-200/90 shadow-[0_4px_24px_-6px_rgba(0,0,0,0.05),0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-between overflow-hidden transition-all duration-200"
+              className="bg-white rounded-2xl border border-slate-200/90 shadow-[0_4px_24px_-6px_rgba(0,0,0,0.05),0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-between overflow-hidden transition-all duration-200"
             >
               {/* Panel Header: Prominent Name, Clear Hierarchy */}
-              <div className="p-6 sm:p-7 border-b border-slate-100 bg-gradient-to-b from-slate-50/80 via-slate-50/20 to-white">
+              <div className="p-5 sm:p-6 border-b border-slate-100 bg-gradient-to-b from-slate-50/80 via-slate-50/20 to-white">
                 <div className="flex items-start justify-between gap-4">
                   {/* Name, role & active count */}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-3 flex-wrap">
-                      <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
+                      <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight">
                         {user.name}
                       </h3>
                       {/* Active tasks counter pill */}
@@ -423,10 +417,6 @@ export const PizarraView: React.FC = () => {
                       <p className="text-xs sm:text-sm text-slate-600 font-semibold">
                         {user.role}
                       </p>
-                      <span className="text-slate-300">•</span>
-                      <span className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">
-                        {user.accessLevel}
-                      </span>
                     </div>
 
                     {/* Urgent / Blocked indicators if any */}
@@ -451,7 +441,7 @@ export const PizarraView: React.FC = () => {
               </div>
 
               {/* SECTION: TAREAS (Main workspace directly below name) */}
-              <div className="p-6 sm:p-7 flex-1 space-y-4">
+              <div className="p-5 sm:p-6 flex-1 space-y-4">
                 <div className="flex items-center justify-between pb-1 border-b border-slate-100">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-black uppercase tracking-wider text-slate-800">
@@ -465,7 +455,7 @@ export const PizarraView: React.FC = () => {
                   {resolvedTasks.length > 0 && (
                     <button
                       onClick={() => toggleResolvedForUser(user.id)}
-                      className="text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer py-1 px-2 rounded-lg hover:bg-slate-50"
+                      className="min-h-10 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer py-1 px-2 rounded-lg hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
                     >
                       <span>
                         {showResolved
@@ -528,7 +518,7 @@ export const PizarraView: React.FC = () => {
               </div>
 
               {/* SECTION: ANOTACIONES */}
-              <div className="p-6 sm:p-7 border-t border-slate-100 bg-slate-50/50">
+              <div className="p-5 sm:p-6 border-t border-slate-100 bg-slate-50/50">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-800">
                     <Pin className="w-4 h-4 text-amber-500 stroke-[2.5]" />

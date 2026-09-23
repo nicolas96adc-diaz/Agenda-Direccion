@@ -140,7 +140,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
           {/* Quick Actions on hover */}
           <div
-            className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+            className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity"
             onClick={e => e.stopPropagation()}
           >
             {perms.canResolveTask && (
@@ -148,7 +148,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 id={`btn-card-resolve-${task.id}`}
                 onClick={() => toggleTaskResolved(task.id)}
                 title={isResolved ? 'Reabrir tarea' : 'Marcar como resuelta'}
-                className={`p-1.5 rounded-lg hover:bg-slate-100/90 transition-colors ${
+                className={`min-w-10 min-h-10 p-1.5 rounded-lg hover:bg-slate-100/90 transition-colors ${
                   isResolved ? 'text-emerald-600' : 'text-slate-400 hover:text-emerald-600'
                 }`}
               >
@@ -161,7 +161,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 id={`btn-card-focus-${task.id}`}
                 onClick={() => toggleFocus(task.id)}
                 title={task.inFocus ? 'Quitar de Foco' : 'Mover a Foco del Día'}
-                className={`p-1.5 rounded-lg hover:bg-slate-100/90 transition-colors ${
+                className={`min-w-10 min-h-10 p-1.5 rounded-lg hover:bg-slate-100/90 transition-colors ${
                   task.inFocus ? 'text-rose-500' : 'text-slate-400 hover:text-rose-500'
                 }`}
               >
@@ -173,7 +173,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               id={`btn-card-edit-${task.id}`}
               onClick={() => openEditModal(task)}
               title={perms.isReadOnly ? 'Ver detalles (Solo lectura)' : 'Editar detalles'}
-              className="p-1.5 rounded-lg hover:bg-slate-100/90 transition-colors text-slate-400 hover:text-slate-700"
+              className="min-w-10 min-h-10 p-1.5 rounded-lg hover:bg-slate-100/90 transition-colors text-slate-400 hover:text-slate-700"
             >
               <MoreVertical className="w-4 h-4" />
             </button>
@@ -267,14 +267,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
         {/* Quick actions */}
         <div
-          className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity"
           onClick={e => e.stopPropagation()}
         >
           {perms.canResolveTask && (
             <button
               onClick={() => toggleTaskResolved(task.id)}
               title={isResolved ? 'Reabrir tarea' : 'Marcar como resuelta'}
-              className={`p-1 rounded-lg hover:bg-slate-100 ${
+                className={`min-w-10 min-h-10 p-1 rounded-lg hover:bg-slate-100 ${
                 isResolved ? 'text-emerald-600' : 'text-slate-400 hover:text-emerald-600'
               }`}
             >
@@ -286,7 +286,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             <button
               onClick={() => toggleFocus(task.id)}
               title={task.inFocus ? 'Quitar de Foco' : 'Mover a Foco del Día'}
-              className={`p-1 rounded-lg hover:bg-slate-100 ${
+                className={`min-w-10 min-h-10 p-1 rounded-lg hover:bg-slate-100 ${
                 task.inFocus ? 'text-rose-500' : 'text-slate-400 hover:text-rose-500'
               }`}
             >
@@ -297,7 +297,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           <button
             onClick={() => openEditModal(task)}
             title={perms.isReadOnly ? 'Ver detalles' : 'Editar tarea'}
-            className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700"
+            className="min-w-10 min-h-10 p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700"
           >
             <MoreVertical className="w-3.5 h-3.5" />
           </button>

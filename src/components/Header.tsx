@@ -17,9 +17,18 @@ const VIEW_CONFIG: Record<ViewType, { title: string; subtitle: string }> = {
 };
 
 export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
-  const { activeView, openCreateModal, currentUser, logout, syncStatus, syncError } = useTasks();
+  const { activeView, openCreateModal, currentUser, logout, syncStatus, syncError, isLoadingData } = useTasks();
   const currentInfo = VIEW_CONFIG[activeView] || VIEW_CONFIG.inicio;
   const isHoy = currentInfo.title === 'HOY';
+  const syncMessage = isLoadingData
+    ? 'Cargando tareas…'
+    : syncStatus === 'syncing'
+    ? 'Guardando cambios…'
+    : syncStatus === 'error'
+    ? syncError || 'No se pudieron sincronizar los cambios.'
+    : syncStatus === 'offline'
+    ? 'Sin conexión'
+    : 'Todo actualizado';
 
   return (
     <header className="bg-slate-100/90 backdrop-blur-xs px-4 sm:px-6 lg:px-8 py-3 border-b border-slate-200/80 shrink-0 z-20">
@@ -72,18 +81,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
                 <span className="text-[10px] text-slate-500 font-medium truncate">
                   {currentUser.role}
                 </span>
-                <span
-                  className="inline-flex items-center"
-                  title={
-                    syncStatus === 'syncing'
-                      ? 'Sincronizando con Cloud Firestore...'
-                      : syncStatus === 'error'
-                      ? `Error de sincronización: ${syncError || 'Error al conectar'}`
-                      : syncStatus === 'offline'
-                      ? 'Sin conexión a la sesión de Firebase'
-                      : 'Sincronizado en tiempo real con Cloud Firestore'
-                  }
-                >
+                <span className="inline-flex items-center gap-1" title={syncMessage}>
                   <span
                     className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                       syncStatus === 'syncing'
@@ -95,6 +93,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
                         : 'bg-emerald-500'
                     }`}
                   />
+                  <span className={`text-[10px] font-semibold ${syncStatus === 'error' ? 'text-rose-700' : syncStatus === 'offline' ? 'text-slate-600' : 'text-slate-500'}`}>
+                    {syncStatus === 'error' ? 'Revisar sincronización' : isLoadingData || syncStatus === 'syncing' ? syncMessage : ''}
+                  </span>
                 </span>
               </div>
             </div>
@@ -122,6 +123,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           </button>
         </div>
       </div>
+      <p className="sr-only" role="status" aria-live="polite">{syncMessage}</p>
     </header>
   );
 };

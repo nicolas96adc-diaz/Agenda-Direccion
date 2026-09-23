@@ -74,6 +74,15 @@ export const TaskModal: React.FC = () => {
     setInFocus(defaultModalInFocus);
   }, [editingTask?.id, isModalOpen, defaultModalStatus, defaultModalInFocus]);
 
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeModal();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen, closeModal]);
+
   if (!isModalOpen) return null;
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -142,12 +151,15 @@ export const TaskModal: React.FC = () => {
     >
       <div
         id="task-modal-container"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="task-modal-title"
         className="bg-white rounded-2xl shadow-[0_20px_50px_rgba(15,23,42,0.14)] border border-slate-200/80 w-full max-w-lg overflow-hidden flex flex-col max-h-[92vh]"
         onClick={event => event.stopPropagation()}
       >
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-b from-slate-50/60 to-white">
           <div>
-            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+            <h2 id="task-modal-title" className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
               {editingTask ? 'Detalle de Tarea' : 'Nueva Tarea Operativa'}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5 font-medium">Clínica Chutro • Dirección</p>
