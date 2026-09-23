@@ -69,7 +69,7 @@ const DashboardLayout: React.FC = () => {
             className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className="relative z-10 w-72 h-full flex flex-col bg-[#142136]">
+          <div className="relative z-10 w-72 h-full flex flex-col bg-[#142136]" role="dialog" aria-modal="true" aria-label="Menú principal">
             <Sidebar
               isCollapsed={false}
               onNavigate={() => setMobileMenuOpen(false)}
@@ -77,7 +77,7 @@ const DashboardLayout: React.FC = () => {
             <button
               type="button"
               onClick={() => setMobileMenuOpen(false)}
-              className="absolute top-4 right-4 p-2 text-white/80 hover:text-white rounded-lg hover:bg-slate-800/80 cursor-pointer"
+              className="absolute top-4 right-4 min-w-11 min-h-11 flex items-center justify-center text-white/80 hover:text-white rounded-lg hover:bg-slate-800/80 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
               aria-label="Cerrar menú"
             >
               <X className="w-5 h-5" />
