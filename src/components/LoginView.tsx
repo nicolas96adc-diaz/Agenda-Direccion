@@ -1,4 +1,3 @@
-import { APP_VERSION } from '../config/app';
 import React, { useMemo, useState } from 'react';
 import {
   AlertCircle,
@@ -16,6 +15,7 @@ import {
   signOutFirebase,
 } from '../lib/firebase';
 import { getUserProfileByUid } from '../services/firestoreSync';
+import { APP_VERSION } from '../config/app';
 
 export const LoginView: React.FC = () => {
   const { users, login } = useTasks();
@@ -147,8 +147,10 @@ export const LoginView: React.FC = () => {
       <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md items-center">
         <div className="w-full rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_24px_64px_rgba(15,35,61,0.13)] backdrop-blur-xs sm:p-9">
           <div className="mb-8 text-center">
-            <p className="mb-4 text-[11px] font-medium tracking-wide text-slate-400">Clínica Planner · v{APP_VERSION}</p>
-<div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#10213d] text-white shadow-lg shadow-slate-900/15">
+            <p className="mb-4 text-[11px] font-medium tracking-wide text-slate-400">
+              Clínica Planner · v{APP_VERSION}
+            </p>
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#10213d] text-white shadow-lg shadow-slate-900/15">
               <LogIn size={26} aria-hidden="true" />
             </div>
             <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-sky-700">Clínica Chutro</p>
@@ -164,8 +166,6 @@ export const LoginView: React.FC = () => {
                 {allowedUsers.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
               </select>
             </label>
-
-            
 
             <label className="block">
               <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-700"><LockKeyhole size={16} aria-hidden="true" /> Contraseña</span>
@@ -184,3 +184,4 @@ export const LoginView: React.FC = () => {
     </main>
   );
 };
+
