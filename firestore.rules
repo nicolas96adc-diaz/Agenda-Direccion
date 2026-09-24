@@ -20,6 +20,25 @@ service cloud.firestore {
     function actor(data) { return has(data, 'lastModifiedByUid') && data.lastModifiedByUid == request.auth.uid && has(data, 'updatedAt'); }
     function owns(data) { return has(data, 'assigneeUid') && data.assigneeUid == request.auth.uid; }
     function immutableTask() { return request.resource.data.id == resource.data.id && request.resource.data.createdAt == resource.data.createdAt; }
+    function groupMeeting(data) { return has(data, 'kind') && data.kind == 'REUNION_GRUPO'; }
+    function validGroupMeeting(data) {
+      return groupMeeting(data) &&
+        has(data, 'organizerUid') && data.organizerUid == request.auth.uid &&
+        has(data, 'organizerName') && data.organizerName == profile().name &&
+        has(data, 'organizerId') && data.organizerId == appUserId() &&
+        has(data, 'assigneeUid') && data.assigneeUid == request.auth.uid &&
+        has(data, 'assignee') && data.assignee == profile().name &&
+        has(data, 'assigneeId') && data.assigneeId == appUserId();
+    }
+    function keepsMeetingOrganizer() {
+      return request.resource.data.organizerUid == resource.data.organizerUid &&
+        request.resource.data.organizerName == resource.data.organizerName &&
+        request.resource.data.organizerId == resource.data.organizerId &&
+        request.resource.data.assigneeUid == resource.data.assigneeUid &&
+        request.resource.data.assignee == resource.data.assignee &&
+        request.resource.data.assigneeId == resource.data.assigneeId &&
+        request.resource.data.createdByUid == resource.data.createdByUid;
+    }
 
     function keepsAssignment() {
       return (has(resource.data, 'assigneeUid') && has(request.resource.data, 'assigneeUid') && request.resource.data.assigneeUid == resource.data.assigneeUid) ||
@@ -32,6 +51,19 @@ service cloud.firestore {
     }
     function release() {
       return !unassigned(resource.data) && unassigned(request.resource.data) && (privileged() || owns(resource.data));
+    }
+    function activeAssignee(data) {
+      return has(data, 'assigneeUid') &&
+        has(data, 'assigneeId') &&
+        has(data, 'assignee') &&
+        exists(/databases/$(database)/documents/users/$(data.assigneeUid)) &&
+        get(/databases/$(database)/documents/users/$(data.assigneeUid)).data.active == true &&
+        get(/databases/$(database)/documents/users/$(data.assigneeUid)).data.appUserId == data.assigneeId &&
+        get(/databases/$(database)/documents/users/$(data.assigneeUid)).data.name == data.assignee;
+    }
+    function reassign() {
+      return privileged() && activeAssignee(request.resource.data) &&
+        (!has(resource.data, 'assigneeUid') || resource.data.assigneeUid != request.resource.data.assigneeUid);
     }
 
     match /users/{uid} {
@@ -47,21 +79,43 @@ service cloud.firestore {
         validStatus(request.resource.data) &&
         actor(request.resource.data) &&
         has(request.resource.data, 'createdByUid') && request.resource.data.createdByUid == request.auth.uid &&
-        unassigned(request.resource.data);
+        ((!groupMeeting(request.resource.data) && unassigned(request.resource.data)) || validGroupMeeting(request.resource.data));
       allow update: if active() &&
         immutableTask() &&
         validStatus(request.resource.data) &&
         actor(request.resource.data) &&
         (
-          ((privileged() || owns(resource.data)) && (keepsAssignment() || release())) ||
-          claim()
+          (groupMeeting(resource.data) && groupMeeting(request.resource.data) && owns(resource.data) && keepsMeetingOrganizer()) ||
+          (!groupMeeting(resource.data) && (((privileged() || owns(resource.data)) && (keepsAssignment() || release() || reassign())) || claim()))
         );
       allow delete: if admin();
     }
 
+    match /meetingAttendance/{attendanceId} {
+      allow read: if active();
+      allow create: if active() &&
+        has(request.resource.data, 'id') && request.resource.data.id == attendanceId &&
+        has(request.resource.data, 'meetingId') &&
+        has(request.resource.data, 'attendeeUid') && request.resource.data.attendeeUid == request.auth.uid &&
+        has(request.resource.data, 'attendeeName') && request.resource.data.attendeeName == profile().name &&
+        has(request.resource.data, 'confirmedAt') &&
+        exists(/databases/$(database)/documents/tasks/$(request.resource.data.meetingId)) &&
+        groupMeeting(get(/databases/$(database)/documents/tasks/$(request.resource.data.meetingId)).data) &&
+        get(/databases/$(database)/documents/tasks/$(request.resource.data.meetingId)).data.organizerUid != request.auth.uid;
+      allow update: if false;
+      allow delete: if active() && resource.data.attendeeUid == request.auth.uid;
+    }
+
     match /notes/{noteId} {
       allow read: if active();
-      allow create, update: if active() && (privileged() || (has(request.resource.data, 'userId') && (request.resource.data.userId == request.auth.uid || request.resource.data.userId == appUserId())));
+      allow create: if active() &&
+        has(request.resource.data, 'authorUid') && request.resource.data.authorUid == request.auth.uid &&
+        has(request.resource.data, 'authorName') && request.resource.data.authorName == profile().name &&
+        (privileged() || (has(request.resource.data, 'userId') && (request.resource.data.userId == request.auth.uid || request.resource.data.userId == appUserId())));
+      allow update: if active() &&
+        has(resource.data, 'authorUid') && resource.data.authorUid == request.auth.uid &&
+        has(resource.data, 'authorName') && resource.data.authorName == profile().name &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'color', 'isCompleted']);
       allow delete: if active() && (privileged() || (has(resource.data, 'userId') && (resource.data.userId == request.auth.uid || resource.data.userId == appUserId())));
     }
 
@@ -70,3 +124,4 @@ service cloud.firestore {
     match /{document=**} { allow read, write: if false; }
   }
 }
+
