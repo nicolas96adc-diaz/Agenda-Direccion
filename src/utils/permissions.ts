@@ -34,6 +34,25 @@ export function isTaskAvailable(task?: Task | null): boolean {
 }
 
 export function getPermissions(user: UserProfile, task?: Task | null): TaskPermissions {
+  const isGroupMeeting = task?.kind === 'REUNION_GRUPO';
+  const isMeetingOrganizer = !!task && !!user.uid && task.organizerUid === user.uid;
+  if (isGroupMeeting) {
+    return {
+      canCreateTask: true,
+      canManageTeam: false,
+      canEditTask: isMeetingOrganizer,
+      canChangeAssignee: false,
+      canResolveTask: false,
+      canBlockTask: false,
+      canDeleteTask: isAdminForUser(user),
+      canToggleFocus: false,
+      canAddCommentOrNote: isMeetingOrganizer,
+      canClaimTask: false,
+      canReleaseTask: false,
+      isReadOnly: !isMeetingOrganizer,
+      restrictionReason: !isMeetingOrganizer ? 'Solo el organizador puede modificar esta reunión.' : undefined,
+    };
+  }
   const isAdmin = user.id === 'user-rodrigo' || user.accessLevel === 'Administración total';
   const isOperations = user.id === 'user-nicolas' || user.id === 'user-noemi';
   const isAssignedToUser = !!task && isTaskAssignedToUser(task, user);
@@ -48,7 +67,7 @@ export function getPermissions(user: UserProfile, task?: Task | null): TaskPermi
     canCreateTask: true,
     canManageTeam: false,
     canEditTask: canEditOwn,
-    canChangeAssignee: false,
+    canChangeAssignee: isAdmin || isOperations,
     canResolveTask: canResolve,
     canBlockTask: canBlock,
     canDeleteTask: isAdmin,
@@ -63,3 +82,8 @@ export function getPermissions(user: UserProfile, task?: Task | null): TaskPermi
         : undefined,
   };
 }
+
+function isAdminForUser(user: UserProfile): boolean {
+  return user.id === 'user-rodrigo' || user.accessLevel === 'Administración total';
+}
+
