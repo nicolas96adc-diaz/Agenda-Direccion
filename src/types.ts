@@ -2,6 +2,8 @@ export type Priority = 'BAJA' | 'NORMAL' | 'ALTA' | 'CRITICA';
 
 export type TaskStatus = 'PENDIENTE' | 'EN_PROCESO' | 'BLOQUEADA' | 'RESUELTA';
 
+export type TaskKind = 'TAREA' | 'REUNION_GRUPO';
+
 export type AccessLevel =
   | 'Administración total'
   | 'Dirección'
@@ -24,7 +26,7 @@ export interface UserProfile {
 }
 
 export interface TaskAuditEntry {
-  action: 'CREADA' | 'MODIFICADA' | 'ESTADO_CAMBIADO' | 'BLOQUEADA' | 'DESBLOQUEADA' | 'RESUELTA' | 'REABIERTA';
+  action: 'CREADA' | 'MODIFICADA' | 'ESTADO_CAMBIADO' | 'BLOQUEADA' | 'DESBLOQUEADA' | 'RESUELTA' | 'REABIERTA' | 'DERIVADA';
   byUserName: string;
   byUserId: string;
   timestamp: string;
@@ -56,9 +58,21 @@ export interface Task {
   closedById?: string;
   closedByUid?: string;
   resolvedAt?: string;
-  /** Mirrors a closed task so the completed state is explicit in Firestore. */
-  isDone?: boolean;
   auditLog?: TaskAuditEntry[];
+  /** Undefined on legacy documents; those remain ordinary operational tasks. */
+  kind?: TaskKind;
+  organizerName?: string;
+  organizerId?: string;
+  organizerUid?: string;
+  location?: string;
+}
+
+export interface MeetingAttendance {
+  id: string;
+  meetingId: string;
+  attendeeUid: string;
+  attendeeName: string;
+  confirmedAt: string;
 }
 
 export interface PersonNote {
@@ -66,6 +80,13 @@ export interface PersonNote {
   text: string;
   createdAt: string;
   color?: 'yellow' | 'blue' | 'slate';
-  isDone?: boolean;
+  /** Stored by the signed-in session when the note is created. */
+  authorName?: string;
+  authorUid?: string;
+  /** A reversible operational check; legacy notes remain pending by default. */
+  isCompleted?: boolean;
 }
+
+export type PersonNoteEditableFields = Pick<PersonNote, 'text' | 'color'>;
 export type ViewType = 'inicio' | 'pizarra' | 'bloqueos' | 'vencimientos' | 'historial' | 'equipo';
+
