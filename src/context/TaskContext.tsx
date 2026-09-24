@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { User } from 'firebase/auth';
-import { Task, TaskStatus, ViewType, UserProfile, PersonNote } from '../types';
+import { MeetingAttendance, Task, TaskStatus, ViewType, UserProfile, PersonNote, PersonNoteEditableFields } from '../types';
 import { INITIAL_TASKS } from '../data/initialTasks';
 import { INITIAL_USERS } from '../data/users';
 import { getTodayDateString, sortTasksByPriorityAndTime } from '../utils/dateUtils';
@@ -9,11 +9,15 @@ import { getPermissions, TaskPermissions, isTaskAvailable } from '../utils/permi
 import {
   subscribeTasks,
   subscribeNotes,
+  subscribeMeetingAttendance,
   saveTaskToFirestore,
   deleteTaskFromFirestore,
   addNoteToFirestore,
-  deleteNoteFromFirestore,
+  setNoteCompletedInFirestore,
   updateNoteInFirestore,
+  deleteNoteFromFirestore,
+  confirmMeetingAttendance,
+  cancelMeetingAttendance,
   fetchAllFromFirestore,
   getUserProfileByUid,
 } from '../services/firestoreSync';
@@ -45,8 +49,11 @@ interface TaskContextType {
 
   notes: Record<string, PersonNote[]>;
   addNote: (userId: string, note: PersonNote) => void;
+  updateNote: (userId: string, noteId: string, updates: PersonNoteEditableFields) => void;
   deleteNote: (userId: string, noteId: string) => void;
-  toggleNoteDone: (userId: string, noteId: string) => void;
+  toggleNoteCompleted: (userId: string, noteId: string) => void;
+  meetingAttendance: Record<string, MeetingAttendance[]>;
+  toggleMeetingAttendance: (meetingId: string) => void;
 
   activeView: ViewType;
   setActiveView: (view: ViewType) => void;
@@ -70,6 +77,7 @@ interface TaskContextType {
     >
   ) => void;
   updateTask: (id: string, updates: Partial<Task>, shouldCloseModal?: boolean) => void;
+  reassignTask: (id: string, assigneeId: string) => void;
   claimTask: (id: string, user?: UserProfile) => void;
   releaseTask: (id: string) => void;
   deleteTask: (id: string) => void;
@@ -100,6 +108,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [users, setUsers] = useState<UserProfile[]>(INITIAL_USERS);
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
   const [notes, setNotes] = useState<Record<string, PersonNote[]>>({});
+  const [meetingAttendance, setMeetingAttendance] = useState<Record<string, MeetingAttendance[]>>({});
 
   const [firebaseUser, setFirebaseUser] = useState<User | null>(auth.currentUser);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -132,6 +141,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCurrentUserIdState('');
         setTasks([]);
         setNotes({});
+        setMeetingAttendance({});
         setUsers(INITIAL_USERS);
         setSyncStatus('offline');
         setSyncError(null);
@@ -203,6 +213,7 @@ setActiveView('inicio');
         if (!mounted || !remote) return;
         setTasks(migrateTaskStatuses(remote.tasks || []));
         setNotes(remote.notes || {});
+        setMeetingAttendance(remote.attendance || {});
         setSyncStatus('synced');
         setIsLoadingData(false);
       })
@@ -244,10 +255,25 @@ setActiveView('inicio');
       }
     );
 
+    const unsubscribeAttendance = subscribeMeetingAttendance(
+      remoteAttendance => {
+        if (!mounted) return;
+        setMeetingAttendance(remoteAttendance || {});
+        setSyncStatus('synced');
+        setSyncError(null);
+      },
+      () => {
+        if (!mounted) return;
+        setSyncStatus('error');
+        setSyncError('Problema al escuchar confirmaciones de reuniones.');
+      }
+    );
+
     return () => {
       mounted = false;
       unsubscribeTasks();
       unsubscribeNotes();
+      unsubscribeAttendance();
     };
   }, [isLoggedIn, firebaseUser]);
 
@@ -289,6 +315,7 @@ setActiveView('inicio');
     setEditingTask(null);
     setTasks([]);
     setNotes({});
+    setMeetingAttendance({});
     setUsers(INITIAL_USERS);
     setCurrentUserIdState('');
     setSyncStatus('offline');
@@ -360,13 +387,14 @@ setActiveView('inicio');
     }
 
     const now = new Date().toISOString();
+    const isGroupMeeting = taskData.kind === 'REUNION_GRUPO';
     const newTask: Task = {
       ...taskData,
       id: `task-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
       status: 'PENDIENTE',
-      assignee: '',
-      assigneeId: undefined,
-      assigneeUid: undefined,
+      assignee: isGroupMeeting ? currentUser.name : '',
+      assigneeId: isGroupMeeting ? currentUser.id : undefined,
+      assigneeUid: isGroupMeeting ? firebaseUser.uid : undefined,
       createdBy: currentUser.name,
       createdById: currentUser.id,
       createdByUid: firebaseUser.uid,
@@ -379,14 +407,17 @@ setActiveView('inicio');
       closedById: undefined,
       closedByUid: undefined,
       resolvedAt: undefined,
-      isDone: false,
+      kind: isGroupMeeting ? 'REUNION_GRUPO' : undefined,
+      organizerName: isGroupMeeting ? currentUser.name : undefined,
+      organizerId: isGroupMeeting ? currentUser.id : undefined,
+      organizerUid: isGroupMeeting ? firebaseUser.uid : undefined,
       auditLog: [
         {
           action: 'CREADA',
           byUserName: currentUser.name,
           byUserId: currentUser.id,
           timestamp: now,
-          details: 'Tarea creada y disponible para el equipo',
+          details: isGroupMeeting ? 'Reunión de grupo creada; el organizador la gestiona.' : 'Tarea creada y disponible para el equipo',
         },
       ],
     };
@@ -420,7 +451,6 @@ setActiveView('inicio');
       createdByUid: _ignoredCreatedByUid,
       createdAt: _ignoredCreatedAt,
       auditLog: _ignoredAuditLog,
-      isDone: _ignoredIsDone,
       ...safeUpdates
     } = updates;
 
@@ -514,7 +544,6 @@ setActiveView('inicio');
       closedBy,
       closedById,
       closedByUid,
-      isDone: nextStatus === 'RESUELTA',
       auditLog: [
         {
           action,
@@ -532,12 +561,56 @@ setActiveView('inicio');
     persistTask(nextTask, 'Error al actualizar la tarea en Firestore.');
   };
 
+  const reassignTask = (id: string, assigneeId: string) => {
+    const targetTask = tasks.find(task => task.id === id);
+    const nextAssignee = users.find(user => user.id === assigneeId && user.active);
+    if (!targetTask || !nextAssignee) {
+      alert('Elegí un integrante activo para derivar la tarea.');
+      return;
+    }
+
+    const permissions = getPermissions(currentUser, targetTask);
+    if (targetTask.kind === 'REUNION_GRUPO' || !permissions.canChangeAssignee) {
+      alert('No tenés permiso para derivar esta tarea.');
+      return;
+    }
+    if (targetTask.assigneeId === nextAssignee.id || targetTask.assigneeUid === nextAssignee.uid) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const previousAssignee = targetTask.assignee || 'Sin responsable';
+    const nextTask: Task = {
+      ...targetTask,
+      assignee: nextAssignee.name,
+      assigneeId: nextAssignee.id,
+      assigneeUid: nextAssignee.uid,
+      lastModifiedBy: currentUser.name,
+      lastModifiedById: currentUser.id,
+      lastModifiedByUid: firebaseUser?.uid || currentUser.uid,
+      updatedAt: now,
+      auditLog: [
+        {
+          action: 'DERIVADA',
+          byUserName: currentUser.name,
+          byUserId: currentUser.id,
+          timestamp: now,
+          details: `Derivada de ${previousAssignee} a ${nextAssignee.name}`,
+        },
+        ...(targetTask.auditLog || []),
+      ],
+    };
+
+    setTasks(previous => previous.map(task => (task.id === id ? nextTask : task)));
+    persistTask(nextTask, 'Error al derivar la tarea en Firestore.');
+  };
+
   const claimTask = (id: string, _userToClaim?: UserProfile) => {
     const targetTask = tasks.find(task => task.id === id);
     if (!targetTask || !firebaseUser) return;
 
     const permissions = getPermissions(currentUser, targetTask);
-    if (!isTaskAvailable(targetTask) || !permissions.canClaimTask) {
+    if (targetTask.kind === 'REUNION_GRUPO' || !isTaskAvailable(targetTask) || !permissions.canClaimTask) {
       alert('Solo podés tomar tareas disponibles.');
       return;
     }
@@ -574,7 +647,7 @@ setActiveView('inicio');
     if (!targetTask) return;
 
     const permissions = getPermissions(currentUser, targetTask);
-    if (!permissions.canReleaseTask) {
+    if (targetTask.kind === 'REUNION_GRUPO' || !permissions.canReleaseTask) {
       alert('No tenés permiso para liberar esta tarea.');
       return;
     }
@@ -707,12 +780,23 @@ setActiveView('inicio');
   };
 
   const addNote = (userId: string, note: PersonNote) => {
+    if (!firebaseUser || !isLoggedIn) {
+      alert('Necesitás una sesión válida para crear una anotación.');
+      return;
+    }
+
+    // The UI only supplies note content. Authorship is always stamped from the active session.
+    const noteWithAuthor: PersonNote = {
+      ...note,
+      authorName: currentUser.name,
+      authorUid: firebaseUser.uid,
+    };
     setNotes(previous => ({
       ...previous,
-      [userId]: [note, ...(previous[userId] || [])],
+      [userId]: [noteWithAuthor, ...(previous[userId] || [])],
     }));
     setSyncStatus('syncing');
-    void addNoteToFirestore(userId, note)
+    void addNoteToFirestore(userId, noteWithAuthor)
       .then(success => {
         if (!success) throw new Error('Error al guardar la nota.');
         setSyncStatus('synced');
@@ -721,35 +805,6 @@ setActiveView('inicio');
         console.warn('Firestore note error:', error);
         setSyncStatus('error');
         setSyncError('Error al guardar la nota en Firestore.');
-      });
-  };
-
-  const toggleNoteDone = (userId: string, noteId: string) => {
-    const isPrivileged = ['user-rodrigo', 'user-nicolas', 'user-noemi'].includes(currentUser.id);
-    const isOwnNote = userId === currentUser.id || userId === firebaseUser?.uid;
-    if (!isPrivileged && !isOwnNote) {
-      alert('Solo podés marcar como lista una anotación propia.');
-      return;
-    }
-
-    const currentNote = (notes[userId] || []).find(note => note.id === noteId);
-    if (!currentNote) return;
-    const nextNote = { ...currentNote, isDone: !currentNote.isDone };
-
-    setNotes(previous => ({
-      ...previous,
-      [userId]: (previous[userId] || []).map(note => (note.id === noteId ? nextNote : note)),
-    }));
-    setSyncStatus('syncing');
-    void updateNoteInFirestore(userId, nextNote)
-      .then(success => {
-        if (!success) throw new Error('Error al actualizar la nota.');
-        setSyncStatus('synced');
-      })
-      .catch(error => {
-        console.warn('Firestore note update error:', error);
-        setSyncStatus('error');
-        setSyncError('Error al actualizar el estado de la nota en Firestore.');
       });
   };
 
@@ -769,6 +824,100 @@ setActiveView('inicio');
         setSyncStatus('error');
         setSyncError('Error al eliminar la nota en Firestore.');
       });
+  };
+
+  const updateNote = (userId: string, noteId: string, updates: PersonNoteEditableFields) => {
+    if (!firebaseUser || !isLoggedIn) {
+      alert('Necesitás una sesión válida para actualizar una anotación.');
+      return;
+    }
+
+    const note = (notes[userId] || []).find(item => item.id === noteId);
+    const text = updates.text.trim();
+    const color = updates.color === 'blue' || updates.color === 'slate' ? updates.color : 'yellow';
+    if (!note || !note.authorUid || note.authorUid !== firebaseUser.uid) {
+      alert('Solo quien creó esta anotación puede editarla.');
+      return;
+    }
+    if (!text) {
+      alert('La anotación no puede quedar vacía.');
+      return;
+    }
+
+    const nextNote: PersonNote = { ...note, text, color };
+    setNotes(previous => ({
+      ...previous,
+      [userId]: (previous[userId] || []).map(item => item.id === noteId ? nextNote : item),
+    }));
+    setSyncStatus('syncing');
+    void updateNoteInFirestore(noteId, { text, color })
+      .then(success => {
+        if (!success) throw new Error('Error al actualizar la anotación.');
+        setSyncStatus('synced');
+      })
+      .catch(error => {
+        console.warn('Firestore note update error:', error);
+        setSyncStatus('error');
+        setSyncError('Error al actualizar la anotación en Firestore.');
+      });
+  };
+
+  const toggleNoteCompleted = (userId: string, noteId: string) => {
+    if (!firebaseUser || !isLoggedIn) {
+      alert('Necesitás una sesión válida para actualizar una anotación.');
+      return;
+    }
+
+    const note = (notes[userId] || []).find(item => item.id === noteId);
+    if (!note || !note.authorUid || note.authorUid !== firebaseUser.uid) {
+      alert('No tenés permiso para actualizar esta anotación.');
+      return;
+    }
+
+    const isCompleted = !note.isCompleted;
+    setNotes(previous => ({
+      ...previous,
+      [userId]: (previous[userId] || []).map(item =>
+        item.id === noteId ? { ...item, isCompleted } : item,
+      ),
+    }));
+    setSyncStatus('syncing');
+    void setNoteCompletedInFirestore(noteId, isCompleted)
+      .then(success => {
+        if (!success) throw new Error('Error al actualizar la anotación.');
+        setSyncStatus('synced');
+      })
+      .catch(error => {
+        console.warn('Firestore note update error:', error);
+        setSyncStatus('error');
+        setSyncError('Error al actualizar la anotación en Firestore.');
+      });
+  };
+
+  const toggleMeetingAttendance = (meetingId: string) => {
+    if (!firebaseUser || !isLoggedIn) {
+      alert('Necesitás una sesión válida para confirmar asistencia.');
+      return;
+    }
+    const meeting = tasks.find(task => task.id === meetingId && task.kind === 'REUNION_GRUPO');
+    if (!meeting || meeting.organizerUid === firebaseUser.uid) return;
+
+    const attendanceId = `${meetingId}_${firebaseUser.uid}`;
+    const existing = (meetingAttendance[meetingId] || []).find(item => item.attendeeUid === firebaseUser.uid);
+    setSyncStatus('syncing');
+    if (existing) {
+      setMeetingAttendance(previous => ({ ...previous, [meetingId]: (previous[meetingId] || []).filter(item => item.attendeeUid !== firebaseUser.uid) }));
+      void cancelMeetingAttendance(attendanceId)
+        .then(success => { if (!success) throw new Error('Error al cancelar asistencia.'); setSyncStatus('synced'); })
+        .catch(error => { console.warn('Meeting attendance cancellation error:', error); setSyncStatus('error'); setSyncError('Error al cancelar asistencia a la reunión.'); });
+      return;
+    }
+
+    const attendance: MeetingAttendance = { id: attendanceId, meetingId, attendeeUid: firebaseUser.uid, attendeeName: currentUser.name, confirmedAt: new Date().toISOString() };
+    setMeetingAttendance(previous => ({ ...previous, [meetingId]: [...(previous[meetingId] || []), attendance] }));
+    void confirmMeetingAttendance(attendance)
+      .then(success => { if (!success) throw new Error('Error al confirmar asistencia.'); setSyncStatus('synced'); })
+      .catch(error => { console.warn('Meeting attendance confirmation error:', error); setSyncStatus('error'); setSyncError('Error al confirmar asistencia a la reunión.'); });
   };
 
   const resetTasks = () => {
@@ -835,8 +984,11 @@ setActiveView('inicio');
         isLoadingData,
         notes,
         addNote,
+        updateNote,
         deleteNote,
-        toggleNoteDone,
+        toggleNoteCompleted,
+      meetingAttendance,
+      toggleMeetingAttendance,
         activeView,
         setActiveView,
         isModalOpen,
@@ -848,6 +1000,7 @@ setActiveView('inicio');
         closeModal,
         addTask,
         updateTask,
+        reassignTask,
         claimTask,
         releaseTask,
         deleteTask,
@@ -877,3 +1030,4 @@ export const useTasks = (): TaskContextType => {
   }
   return context;
 };
+
