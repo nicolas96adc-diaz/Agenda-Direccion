@@ -257,3 +257,4 @@ export const EquipoView: React.FC = () => {
     </div>
   );
 };
+
