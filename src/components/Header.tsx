@@ -50,7 +50,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
               id="view-main-title"
               className={
                 isHoy
-                  ? 'text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-none uppercase select-none text-[#1e3a5f]'
+                  ? 'text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-none uppercase select-none text-[#1e3a5f]'
                   : 'text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-none'
               }
             >
@@ -127,3 +127,4 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
     </header>
   );
 };
+
