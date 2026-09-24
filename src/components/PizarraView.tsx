@@ -15,6 +15,7 @@ import {
   ChevronUp,
   MoreVertical,
   Pin,
+  Pencil,
   Sparkles,
   Undo2,
   Layers,
@@ -25,6 +26,7 @@ import { findUserByNameOrAlias } from '../data/users';
 import { getTodayDateString, formatHumanDeadline, formatResponsibleLabel } from '../utils/dateUtils';
 import { calculateTaskUrgencyScore, getTaskVisuals } from '../utils/taskUrgency';
 import { PizarraTaskCard } from './PizarraTaskCard';
+import { MeetingCard } from './MeetingCard';
 
 export const PizarraView: React.FC = () => {
   const {
@@ -33,8 +35,9 @@ export const PizarraView: React.FC = () => {
     currentUser,
     notes,
     addNote,
+    updateNote,
     deleteNote,
-    toggleNoteDone,
+    toggleNoteCompleted,
     openCreateModal,
     openEditModal,
     toggleTaskResolved,
@@ -44,12 +47,20 @@ export const PizarraView: React.FC = () => {
     claimTask,
     releaseTask,
     moveTaskStatus,
+    meetingAttendance,
+    toggleMeetingAttendance,
   } = useTasks();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUserFilter, setSelectedUserFilter] = useState<string>('all');
   const [showResolvedByUser, setShowResolvedByUser] = useState<Record<string, boolean>>({});
   const [quickNoteInputs, setQuickNoteInputs] = useState<Record<string, string>>({});
+  const [editingNote, setEditingNote] = useState<{
+    userId: string;
+    noteId: string;
+    text: string;
+    color: 'yellow' | 'blue' | 'slate';
+  } | null>(null);
   const [sharedWhiteboardTaskTitle, setSharedWhiteboardTaskTitle] = useState('');
   const [processingTaskIds, setProcessingTaskIds] = useState<Record<string, boolean>>({});
 
@@ -98,7 +109,10 @@ export const PizarraView: React.FC = () => {
   const todayStr = getTodayDateString();
 
   // 1. Filter Available Tasks (tasks with no responsible person)
+  const groupMeetings = tasks.filter(task => task.kind === 'REUNION_GRUPO');
+
   const availableTasks = tasks.filter(t => {
+    if (t.kind === 'REUNION_GRUPO') return false;
     if (t.status === 'RESUELTA') return false;
     const a = (t.assignee || '').trim().toLowerCase();
     return !a || a === 'disponible' || a === 'sin asignar' || a === 'sin responsable';
@@ -117,6 +131,7 @@ export const PizarraView: React.FC = () => {
   // 2. Helper to match tasks taken by a specific team member
   const getTasksForUser = (user: UserProfile) => {
     return tasks.filter(t => {
+      if (t.kind === 'REUNION_GRUPO') return false;
       const a = (t.assignee || '').trim().toLowerCase();
       if (!a || a === 'disponible' || a === 'sin asignar' || a === 'sin responsable') {
         return false;
@@ -158,7 +173,6 @@ export const PizarraView: React.FC = () => {
       text,
       createdAt: new Date().toISOString(),
       color: randomColor,
-      isDone: false,
     };
 
     addNote(userId, newNote);
@@ -168,6 +182,23 @@ export const PizarraView: React.FC = () => {
   // Delete note
   const handleDeleteNote = (userId: string, noteId: string) => {
     deleteNote(userId, noteId);
+  };
+
+  const startEditingNote = (userId: string, note: PersonNote) => {
+    setEditingNote({
+      userId,
+      noteId: note.id,
+      text: note.text,
+      color: note.color === 'blue' || note.color === 'slate' ? note.color : 'yellow',
+    });
+  };
+
+  const saveEditedNote = () => {
+    if (!editingNote) return;
+    const text = editingNote.text.trim();
+    if (!text) return;
+    updateNote(editingNote.userId, editingNote.noteId, { text, color: editingNote.color });
+    setEditingNote(null);
   };
 
   // Create a new task in the shared whiteboard (initially no responsible person -> Disponible)
@@ -270,6 +301,20 @@ export const PizarraView: React.FC = () => {
       </div>
 
       {/* SECTION: PIZARRA COMPARTIDA · TAREAS DISPONIBLES */}
+      {groupMeetings.length > 0 && (
+        <section aria-labelledby="group-meetings-heading" className="rounded-2xl border border-indigo-100 bg-white p-5 sm:p-6 shadow-[0_4px_22px_rgba(15,23,42,0.04)]">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-100 text-indigo-700"><Users className="w-5 h-5" /></div>
+            <div>
+              <h3 id="group-meetings-heading" className="text-lg sm:text-xl font-bold text-slate-900">Reuniones de grupo</h3>
+              <p className="text-xs sm:text-sm text-slate-500">Confirmá tu asistencia; solo el organizador puede editar cada reunión.</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
+            {groupMeetings.map(meeting => <MeetingCard key={meeting.id} meeting={meeting} attendance={meetingAttendance[meeting.id] || []} currentUser={currentUser} onOpen={openEditModal} onToggleAttendance={toggleMeetingAttendance} />)}
+          </div>
+        </section>
+      )}
       <div
         id="section-tareas-disponibles"
         className="bg-[#142136] text-white rounded-2xl p-5 sm:p-6 shadow-[0_8px_30px_rgba(15,23,42,0.15)] border border-slate-800"
@@ -387,9 +432,6 @@ export const PizarraView: React.FC = () => {
           });
 
           const showResolved = !!showResolvedByUser[user.id];
-          const canManageUserNotes =
-            user.id === currentUser.id ||
-            ['user-rodrigo', 'user-nicolas', 'user-noemi'].includes(currentUser.id);
 
           return (
             <div
@@ -535,12 +577,13 @@ export const PizarraView: React.FC = () => {
                 </div>
 
                 {/* Sticky Notes Container */}
-                <div className="space-y-3 mb-4">
+                <div className="space-y-2 mb-4">
                   {userNotes.length > 0 ? (
                     userNotes.map(note => {
-                      const isDone = note.isDone === true;
                       const isYellow = note.color === 'yellow' || !note.color;
                       const isBlue = note.color === 'blue';
+                      const canEditNote = !!note.authorUid && note.authorUid === currentUser.uid;
+                      const isEditing = editingNote?.noteId === note.id && editingNote.userId === user.id;
 
                       const noteStyle = isYellow
                         ? 'bg-[#fefce8] border-amber-200 text-amber-950 shadow-2xs'
@@ -551,41 +594,99 @@ export const PizarraView: React.FC = () => {
                       return (
                         <div
                           key={note.id}
-                          className={`group/note relative p-3.5 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xs ${noteStyle} ${isDone ? 'opacity-70' : ''}`}
+                          className={`group/note relative p-3.5 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xs ${noteStyle} ${note.isCompleted ? 'opacity-70' : ''}`}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
-                              <p className={`text-xs sm:text-sm leading-relaxed font-medium break-words ${isDone ? 'line-through text-slate-500' : ''}`}>
-                                {note.text}
-                              </p>
-                              <div className="mt-2 flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  id={`btn-note-done-${note.id}`}
-                                  onClick={() => toggleNoteDone(user.id, note.id)}
-                                  disabled={!canManageUserNotes}
-                                  aria-pressed={isDone}
-                                  title={canManageUserNotes ? (isDone ? 'Desmarcar como lista' : 'Marcar como lista') : 'Solo el responsable o Dirección puede cambiarla'}
-                                  className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-bold transition-colors ${isDone ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white/70 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700'} ${canManageUserNotes ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
-                                >
-                                  <CheckCircle2 className="w-3 h-3" />
-                                  <span>✓ Listo</span>
-                                </button>
-                                {note.createdAt && (
-                                  <span className="text-[10px] font-semibold text-slate-500 opacity-75">
-                                    {formatNoteTime(note.createdAt)}
-                                  </span>
-                                )}
-                              </div>
+                              {isEditing ? (
+                                <div className="space-y-2.5">
+                                  <textarea
+                                    id={`textarea-note-${note.id}`}
+                                    value={editingNote.text}
+                                    onChange={event => setEditingNote(current => current ? { ...current, text: event.target.value } : current)}
+                                    aria-label="Editar anotación"
+                                    rows={3}
+                                    className="w-full resize-y rounded-lg border border-amber-300 bg-white/80 px-2.5 py-2 text-xs sm:text-sm leading-relaxed text-slate-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-amber-300"
+                                  />
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex items-center gap-1.5" aria-label="Color de fondo">
+                                      {([
+                                        ['yellow', 'Amarillo', 'bg-amber-200 border-amber-400'],
+                                        ['blue', 'Celeste', 'bg-sky-200 border-sky-400'],
+                                        ['slate', 'Blanco', 'bg-white border-slate-400'],
+                                      ] as const).map(([color, label, swatchClass]) => (
+                                        <button
+                                          key={color}
+                                          type="button"
+                                          aria-label={`Fondo ${label}`}
+                                          aria-pressed={editingNote.color === color}
+                                          title={`Fondo ${label}`}
+                                          onClick={() => setEditingNote(current => current ? { ...current, color } : current)}
+                                          className={`h-7 w-7 rounded-full border-2 transition-transform focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1 ${swatchClass} ${editingNote.color === color ? 'scale-110 ring-2 ring-slate-700 ring-offset-1' : 'hover:scale-105'}`}
+                                        />
+                                      ))}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <button type="button" onClick={() => setEditingNote(null)} className="min-h-8 rounded-lg px-2 text-[11px] font-bold text-slate-600 hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-slate-300">
+                                        Cancelar
+                                      </button>
+                                      <button type="button" onClick={saveEditedNote} disabled={!editingNote.text.trim()} className="min-h-8 rounded-lg bg-[#142136] px-2.5 text-[11px] font-bold text-white transition-colors hover:bg-[#1e2f4a] focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-50">
+                                        Guardar cambios
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className={`text-xs sm:text-sm leading-relaxed font-medium break-words ${note.isCompleted ? 'text-slate-500 line-through' : ''}`}>
+                                  {note.text}
+                                </p>
+                              )}
+                              {note.createdAt && (
+                                <span className="text-[10px] font-medium text-slate-500 mt-2.5 block">
+                                  {note.authorName ? (
+                                    <>Creada por: {note.authorName} · {formatNoteTime(note.createdAt)}</>
+                                  ) : (
+                                    formatNoteTime(note.createdAt)
+                                  )}
+                                </span>
+                              )}
                             </div>
 
-                            <button
-                              onClick={() => handleDeleteNote(user.id, note.id)}
-                              title="Eliminar nota"
-                              className="opacity-0 group-hover/note:opacity-100 p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer shrink-0"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            <div className="flex shrink-0 items-center gap-1" onClick={event => event.stopPropagation()}>
+                              {canEditNote && !isEditing && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleNoteCompleted(user.id, note.id)}
+                                  aria-pressed={note.isCompleted === true}
+                                  title={note.isCompleted ? 'Desmarcar como listo' : 'Marcar como listo'}
+                                  className={`inline-flex min-h-9 items-center gap-1 rounded-lg border px-2 text-[11px] font-bold transition-colors ${note.isCompleted ? 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100' : 'border-slate-200 bg-white/80 text-slate-600 hover:border-emerald-200 hover:text-emerald-800'}`}
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  <span>{note.isCompleted ? 'Desmarcar listo' : '✓ Listo'}</span>
+                                </button>
+                              )}
+                              {canEditNote && !isEditing && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditingNote(user.id, note)}
+                                    title="Editar anotación"
+                                    className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-[11px] font-bold text-slate-600 opacity-100 transition-colors hover:bg-white/70 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-slate-300 sm:opacity-0 sm:group-hover/note:opacity-100"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                    <span className="sr-only sm:not-sr-only">Editar</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteNote(user.id, note.id)}
+                                    title="Eliminar nota"
+                                    className="p-1.5 rounded-lg text-slate-400 opacity-100 transition-all hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus:ring-2 focus:ring-rose-200 sm:opacity-0 sm:group-hover/note:opacity-100"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -613,6 +714,7 @@ export const PizarraView: React.FC = () => {
                       setQuickNoteInputs(prev => ({ ...prev, [user.id]: e.target.value }))
                     }
                     placeholder={`+ Escribir nota para ${user.shortName}...`}
+                    aria-label={`Nueva anotación para ${user.name}`}
                     className="flex-1 bg-transparent text-xs sm:text-sm text-amber-950 placeholder:text-amber-700/60 focus:outline-none"
                   />
                   <button
@@ -631,3 +733,4 @@ export const PizarraView: React.FC = () => {
     </div>
   );
 };
+
