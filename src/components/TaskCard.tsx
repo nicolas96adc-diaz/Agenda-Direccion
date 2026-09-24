@@ -128,12 +128,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               <span>{visuals.badgeLabel}</span>
             </span>
 
-            {isResolved && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200">
-                <CheckCircle2 className="w-3 h-3" /> ✓ Listo
-              </span>
-            )}
-
             {perms.isReadOnly && (
               <span
                 title="Solo lectura para tu perfil"
@@ -153,7 +147,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               <button
                 id={`btn-card-resolve-${task.id}`}
                 onClick={() => toggleTaskResolved(task.id)}
-                title={isResolved ? 'Reabrir tarea' : 'Marcar como resuelta'}
+                title={isResolved ? 'Desmarcar como listo' : 'Marcar como listo'}
+                aria-label={isResolved ? 'Desmarcar como listo' : 'Marcar como listo'}
                 className={`min-w-10 min-h-10 p-1.5 rounded-lg hover:bg-slate-100/90 transition-colors ${
                   isResolved ? 'text-emerald-600' : 'text-slate-400 hover:text-emerald-600'
                 }`}
@@ -256,16 +251,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         <div className="flex items-center gap-1.5">
           <span
             className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase border shadow-2xs ${visuals.badgeClass}`}
-            >
-              {renderBadgeIcon()}
-              <span>{visuals.badgeLabel}</span>
-            </span>
-
-          {isResolved && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200">
-              <CheckCircle2 className="w-3 h-3" /> ✓ Listo
-            </span>
-          )}
+          >
+            {renderBadgeIcon()}
+            <span>{visuals.badgeLabel}</span>
+          </span>
 
           {perms.isReadOnly && (
             <span
@@ -285,7 +274,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           {perms.canResolveTask && (
             <button
               onClick={() => toggleTaskResolved(task.id)}
-              title={isResolved ? 'Reabrir tarea' : 'Marcar como resuelta'}
+              title={isResolved ? 'Desmarcar como listo' : 'Marcar como listo'}
+              aria-label={isResolved ? 'Desmarcar como listo' : 'Marcar como listo'}
                 className={`min-w-10 min-h-10 p-1 rounded-lg hover:bg-slate-100 ${
                 isResolved ? 'text-emerald-600' : 'text-slate-400 hover:text-emerald-600'
               }`}
@@ -368,3 +358,4 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     </div>
   );
 };
+
