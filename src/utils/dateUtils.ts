@@ -109,6 +109,26 @@ export function formatHumanDeadline(
   return { text: `Vence el ${formatShortDate(dueDate)}`, isOverdue: false, isToday: false, isTomorrow: false };
 }
 
+/**
+ * Group meetings are scheduled events, never deadlines. Keep their date and
+ * time literal so the card and the editor describe the same appointment.
+ */
+export function formatMeetingDateTime(dueDate?: string, dueTime?: string): string {
+  if (!dueDate) return 'Fecha a confirmar';
+
+  const [year, month, day] = dueDate.split('-').map(Number);
+  if (!year || !month || !day) return dueTime ? `${dueDate} · ${dueTime}` : dueDate;
+
+  const date = new Date(year, month - 1, day);
+  const formattedDate = date.toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  const capitalizedDate = formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
+  return dueTime ? `${capitalizedDate} · ${dueTime}` : capitalizedDate;
+}
+
 export function formatResponsibleLabel(name?: string): string {
   if (!name || !name.trim() || name === 'Sin asignar' || name === 'Disponible') {
     return 'Disponible';
@@ -174,4 +194,5 @@ export function formatAuditDateTime(isoStr?: string): string {
     return isoStr;
   }
 }
+
 
