@@ -56,7 +56,7 @@ export const PizarraTaskCard: React.FC<PizarraTaskCardProps> = ({
     }
   };
 
-  const statusLabel = isResolved ? 'Resuelta' : isBlocked ? 'Bloqueada' : isInProgress ? 'En proceso' : 'Pendiente';
+  const statusLabel = isResolved ? '✓ Listo' : isBlocked ? 'Bloqueada' : isInProgress ? 'En proceso' : 'Pendiente';
 
   return (
     <div
@@ -83,7 +83,7 @@ export const PizarraTaskCard: React.FC<PizarraTaskCardProps> = ({
                   {permissions.canEditTask && <option value="PENDIENTE">Pendiente</option>}
                   {permissions.canEditTask && <option value="EN_PROCESO">En proceso</option>}
                   {permissions.canBlockTask && <option value="BLOQUEADA">Bloqueada</option>}
-                  {permissions.canResolveTask && <option value="RESUELTA">Resuelta</option>}
+                  {permissions.canResolveTask && <option value="RESUELTA">✓ Listo</option>}
                 </select>
                 <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -97,9 +97,9 @@ export const PizarraTaskCard: React.FC<PizarraTaskCardProps> = ({
             <div className="min-w-0">{isUnassigned ? <span className="text-[11px] text-slate-400">Sin asignar</span> : <span className="inline-block text-[11px] font-medium text-slate-700 bg-slate-100/80 px-2 py-0.5 rounded-md border border-slate-200/60 truncate max-w-[180px]" title={`A cargo de: ${task.assignee}`}><strong className="font-semibold text-slate-800">{task.assignee}</strong></span>}</div>
             <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
               {isUnassigned && permissions.canClaimTask && onClaim && <button type="button" id={`btn-me-hago-cargo-${task.id}`} onClick={e => { e.stopPropagation(); handleClaim(); }} className="inline-flex min-h-10 items-center gap-1.5 px-3 rounded-xl text-xs font-bold bg-[#142136] hover:bg-emerald-600 text-white transition-all shadow-2xs active:scale-[0.98] cursor-pointer" title="Hacerme cargo de esta tarea"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /><span>Me hago cargo</span></button>}
-              {!isUnassigned && isResolved && permissions.canResolveTask && onStatusChange && <button type="button" id={`btn-reabrir-${task.id}`} onClick={e => { e.stopPropagation(); handleStatusChange('EN_PROCESO'); }} className="inline-flex min-h-10 items-center gap-1 px-2.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200/60 transition-colors cursor-pointer" title="Reabrir tarea"><RotateCcw className="w-3 h-3 text-slate-400" /><span>Reabrir</span></button>}
+              {!isUnassigned && isResolved && permissions.canResolveTask && onStatusChange && <button type="button" id={`btn-reabrir-${task.id}`} onClick={e => { e.stopPropagation(); handleStatusChange('EN_PROCESO'); }} className="inline-flex min-h-10 items-center gap-1 px-2.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200/60 transition-colors cursor-pointer" title="Desmarcar como listo y reabrir tarea"><RotateCcw className="w-3 h-3 text-slate-400" /><span>Desmarcar ✓ Listo</span></button>}
               {!isUnassigned && !isResolved && permissions.canReleaseTask && onRelease && <button type="button" id={`btn-liberar-${task.id}`} onClick={e => { e.stopPropagation(); handleRelease(); }} className="min-h-10 text-xs text-slate-500 hover:text-rose-600 hover:underline px-2 transition-colors cursor-pointer" title="Liberar tarea (vuelve a quedar disponible para el equipo)">Liberar</button>}
-              {!isUnassigned && !isResolved && permissions.canResolveTask && onStatusChange && <button type="button" id={`btn-resolver-${task.id}`} onClick={e => { e.stopPropagation(); handleStatusChange('RESUELTA'); }} className="inline-flex min-h-10 items-center gap-1 px-2.5 rounded-lg text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition-colors cursor-pointer" title="Marcar como resuelta"><CheckCircle2 className="w-3.5 h-3.5" /><span>Resolver</span></button>}
+              {!isUnassigned && !isResolved && permissions.canResolveTask && onStatusChange && <button type="button" id={`btn-resolver-${task.id}`} onClick={e => { e.stopPropagation(); handleStatusChange('RESUELTA'); }} className="inline-flex min-h-10 items-center gap-1 px-2.5 rounded-lg text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition-colors cursor-pointer" title="Marcar como listo y cerrar tarea"><CheckCircle2 className="w-3.5 h-3.5" /><span>✓ Listo</span></button>}
             </div>
           </div>
         </>

@@ -56,8 +56,16 @@ export interface Task {
   closedById?: string;
   closedByUid?: string;
   resolvedAt?: string;
+  /** Mirrors a closed task so the completed state is explicit in Firestore. */
+  isDone?: boolean;
   auditLog?: TaskAuditEntry[];
 }
 
-export interface PersonNote { id: string; text: string; createdAt: string; color?: 'yellow' | 'blue' | 'slate'; }
+export interface PersonNote {
+  id: string;
+  text: string;
+  createdAt: string;
+  color?: 'yellow' | 'blue' | 'slate';
+  isDone?: boolean;
+}
 export type ViewType = 'inicio' | 'pizarra' | 'bloqueos' | 'vencimientos' | 'historial' | 'equipo';

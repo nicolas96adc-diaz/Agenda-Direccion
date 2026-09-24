@@ -253,7 +253,7 @@ export const TaskModal: React.FC = () => {
                   {permissions.canEditTask && <option value="EN_PROCESO">En proceso</option>}
                   {permissions.canBlockTask && <option value="BLOQUEADA">Bloqueada</option>}
                   <option value="RESUELTA" disabled={!permissions.canResolveTask}>
-                    Resuelta
+                    ✓ Listo
                   </option>
                 </select>
               ) : (
@@ -376,7 +376,7 @@ export const TaskModal: React.FC = () => {
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border bg-white text-slate-700 border-slate-200 hover:bg-emerald-50 cursor-pointer"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  {status === 'RESUELTA' ? 'Reabrir' : 'Marcar Resuelta'}
+                  {status === 'RESUELTA' ? 'Desmarcar ✓ Listo' : '✓ Listo'}
                 </button>
               )}
               {permissions.canBlockTask && status !== 'RESUELTA' && (

@@ -128,6 +128,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               <span>{visuals.badgeLabel}</span>
             </span>
 
+            {isResolved && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200">
+                <CheckCircle2 className="w-3 h-3" /> ✓ Listo
+              </span>
+            )}
+
             {perms.isReadOnly && (
               <span
                 title="Solo lectura para tu perfil"
@@ -250,10 +256,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         <div className="flex items-center gap-1.5">
           <span
             className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase border shadow-2xs ${visuals.badgeClass}`}
-          >
-            {renderBadgeIcon()}
-            <span>{visuals.badgeLabel}</span>
-          </span>
+            >
+              {renderBadgeIcon()}
+              <span>{visuals.badgeLabel}</span>
+            </span>
+
+          {isResolved && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200">
+              <CheckCircle2 className="w-3 h-3" /> ✓ Listo
+            </span>
+          )}
 
           {perms.isReadOnly && (
             <span

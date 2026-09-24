@@ -10,7 +10,14 @@ export const NOTES_COLLECTION = 'notes';
 export const MEMORIAS_COLLECTION = 'memorias';
 export const USERS_COLLECTION = 'users';
 
-export interface FirestoreNoteDoc { id: string; userId: string; text: string; createdAt: string; color?: 'yellow' | 'blue' | 'slate'; }
+export interface FirestoreNoteDoc {
+  id: string;
+  userId: string;
+  text: string;
+  createdAt: string;
+  color?: 'yellow' | 'blue' | 'slate';
+  isDone?: boolean;
+}
 export interface FirestoreUserProfile { uid: string; email: string; appUserId: string; name: string; role: string; active: boolean; shortName?: string; accessLevel?: UserProfile['accessLevel']; }
 
 function parseNoteColor(color?: string): 'yellow' | 'blue' | 'slate' { return color === 'blue' || color === 'slate' ? color : 'yellow'; }
@@ -95,7 +102,7 @@ export function subscribeNotes(onUpdate: (notes: Record<string, PersonNote[]>) =
   try {
     return onSnapshot(collection(db, NOTES_COLLECTION), snapshot => {
       const grouped: Record<string, PersonNote[]> = {};
-      snapshot.forEach(item => { const data = item.data() as FirestoreNoteDoc; if (!data?.userId) return; const id = data.id || item.id; (grouped[data.userId] ||= []).push({ id, text: data.text || '', createdAt: data.createdAt || new Date(0).toISOString(), color: parseNoteColor(data.color) }); });
+      snapshot.forEach(item => { const data = item.data() as FirestoreNoteDoc; if (!data?.userId) return; const id = data.id || item.id; (grouped[data.userId] ||= []).push({ id, text: data.text || '', createdAt: data.createdAt || new Date(0).toISOString(), color: parseNoteColor(data.color), isDone: data.isDone === true }); });
       Object.values(grouped).forEach(items => items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
       onUpdate(grouped);
     }, error => { console.warn('Firestore notes subscription error:', error); onError?.(error); });
@@ -104,7 +111,8 @@ export function subscribeNotes(onUpdate: (notes: Record<string, PersonNote[]>) =
 
 export async function saveTaskToFirestore(task: Task): Promise<boolean> { try { const cleanTask = stripUndefined(task); await setDoc(doc(db, TASKS_COLLECTION, task.id), cleanTask as any); return true; } catch (error) { console.error('Error saving task to Firestore:', error); return false; } }
 export async function deleteTaskFromFirestore(taskId: string): Promise<boolean> { try { await deleteDoc(doc(db, TASKS_COLLECTION, taskId)); return true; } catch (error) { console.error('Error deleting task from Firestore:', error); return false; } }
-export async function addNoteToFirestore(userId: string, note: PersonNote): Promise<boolean> { try { const payload: FirestoreNoteDoc = { id: note.id, userId, text: note.text, createdAt: note.createdAt || new Date().toISOString(), color: parseNoteColor(note.color) }; await setDoc(doc(db, NOTES_COLLECTION, note.id), payload); return true; } catch (error) { console.error('Error adding note to Firestore:', error); return false; } }
+export async function addNoteToFirestore(userId: string, note: PersonNote): Promise<boolean> { try { const payload: FirestoreNoteDoc = { id: note.id, userId, text: note.text, createdAt: note.createdAt || new Date().toISOString(), color: parseNoteColor(note.color), isDone: note.isDone === true }; await setDoc(doc(db, NOTES_COLLECTION, note.id), payload); return true; } catch (error) { console.error('Error adding note to Firestore:', error); return false; } }
+export async function updateNoteInFirestore(userId: string, note: PersonNote): Promise<boolean> { return addNoteToFirestore(userId, note); }
 export async function deleteNoteFromFirestore(noteId: string): Promise<boolean> { try { await deleteDoc(doc(db, NOTES_COLLECTION, noteId)); return true; } catch (error) { console.error('Error deleting note from Firestore:', error); return false; } }
 
 export async function fetchAllFromFirestore(): Promise<{ tasks: Task[]; users: UserProfile[]; notes: Record<string, PersonNote[]>; } | null> {
@@ -112,7 +120,7 @@ export async function fetchAllFromFirestore(): Promise<{ tasks: Task[]; users: U
     const [tasksSnapshot, notesSnapshot] = await Promise.all([getDocs(collection(db, TASKS_COLLECTION)), getDocs(collection(db, NOTES_COLLECTION))]);
     const tasks = tasksSnapshot.docs.map(item => { const data = item.data() as Task; return { ...data, id: data.id || item.id }; });
     const notes: Record<string, PersonNote[]> = {};
-    notesSnapshot.forEach(item => { const data = item.data() as FirestoreNoteDoc; if (!data?.userId) return; const id = data.id || item.id; (notes[data.userId] ||= []).push({ id, text: data.text || '', createdAt: data.createdAt || new Date(0).toISOString(), color: parseNoteColor(data.color) }); });
+    notesSnapshot.forEach(item => { const data = item.data() as FirestoreNoteDoc; if (!data?.userId) return; const id = data.id || item.id; (notes[data.userId] ||= []).push({ id, text: data.text || '', createdAt: data.createdAt || new Date(0).toISOString(), color: parseNoteColor(data.color), isDone: data.isDone === true }); });
     Object.values(notes).forEach(items => items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     return { tasks, users: [], notes };
   } catch (error) { console.warn('[Firestore] fetchAllFromFirestore error:', error); return null; }

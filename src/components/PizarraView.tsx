@@ -34,6 +34,7 @@ export const PizarraView: React.FC = () => {
     notes,
     addNote,
     deleteNote,
+    toggleNoteDone,
     openCreateModal,
     openEditModal,
     toggleTaskResolved,
@@ -157,6 +158,7 @@ export const PizarraView: React.FC = () => {
       text,
       createdAt: new Date().toISOString(),
       color: randomColor,
+      isDone: false,
     };
 
     addNote(userId, newNote);
@@ -385,6 +387,9 @@ export const PizarraView: React.FC = () => {
           });
 
           const showResolved = !!showResolvedByUser[user.id];
+          const canManageUserNotes =
+            user.id === currentUser.id ||
+            ['user-rodrigo', 'user-nicolas', 'user-noemi'].includes(currentUser.id);
 
           return (
             <div
@@ -533,6 +538,7 @@ export const PizarraView: React.FC = () => {
                 <div className="space-y-3 mb-4">
                   {userNotes.length > 0 ? (
                     userNotes.map(note => {
+                      const isDone = note.isDone === true;
                       const isYellow = note.color === 'yellow' || !note.color;
                       const isBlue = note.color === 'blue';
 
@@ -545,18 +551,32 @@ export const PizarraView: React.FC = () => {
                       return (
                         <div
                           key={note.id}
-                          className={`group/note relative p-3.5 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xs ${noteStyle}`}
+                          className={`group/note relative p-3.5 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xs ${noteStyle} ${isDone ? 'opacity-70' : ''}`}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
-                              <p className="text-xs sm:text-sm leading-relaxed font-medium break-words">
+                              <p className={`text-xs sm:text-sm leading-relaxed font-medium break-words ${isDone ? 'line-through text-slate-500' : ''}`}>
                                 {note.text}
                               </p>
-                              {note.createdAt && (
-                                <span className="text-[10px] font-semibold text-slate-500 mt-2 block opacity-75">
-                                  {formatNoteTime(note.createdAt)}
-                                </span>
-                              )}
+                              <div className="mt-2 flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  id={`btn-note-done-${note.id}`}
+                                  onClick={() => toggleNoteDone(user.id, note.id)}
+                                  disabled={!canManageUserNotes}
+                                  aria-pressed={isDone}
+                                  title={canManageUserNotes ? (isDone ? 'Desmarcar como lista' : 'Marcar como lista') : 'Solo el responsable o Dirección puede cambiarla'}
+                                  className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-bold transition-colors ${isDone ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white/70 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700'} ${canManageUserNotes ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
+                                >
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  <span>✓ Listo</span>
+                                </button>
+                                {note.createdAt && (
+                                  <span className="text-[10px] font-semibold text-slate-500 opacity-75">
+                                    {formatNoteTime(note.createdAt)}
+                                  </span>
+                                )}
+                              </div>
                             </div>
 
                             <button

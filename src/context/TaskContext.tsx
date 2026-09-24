@@ -13,6 +13,7 @@ import {
   deleteTaskFromFirestore,
   addNoteToFirestore,
   deleteNoteFromFirestore,
+  updateNoteInFirestore,
   fetchAllFromFirestore,
   getUserProfileByUid,
 } from '../services/firestoreSync';
@@ -45,6 +46,7 @@ interface TaskContextType {
   notes: Record<string, PersonNote[]>;
   addNote: (userId: string, note: PersonNote) => void;
   deleteNote: (userId: string, noteId: string) => void;
+  toggleNoteDone: (userId: string, noteId: string) => void;
 
   activeView: ViewType;
   setActiveView: (view: ViewType) => void;
@@ -377,6 +379,7 @@ setActiveView('inicio');
       closedById: undefined,
       closedByUid: undefined,
       resolvedAt: undefined,
+      isDone: false,
       auditLog: [
         {
           action: 'CREADA',
@@ -417,6 +420,7 @@ setActiveView('inicio');
       createdByUid: _ignoredCreatedByUid,
       createdAt: _ignoredCreatedAt,
       auditLog: _ignoredAuditLog,
+      isDone: _ignoredIsDone,
       ...safeUpdates
     } = updates;
 
@@ -510,6 +514,7 @@ setActiveView('inicio');
       closedBy,
       closedById,
       closedByUid,
+      isDone: nextStatus === 'RESUELTA',
       auditLog: [
         {
           action,
@@ -719,6 +724,35 @@ setActiveView('inicio');
       });
   };
 
+  const toggleNoteDone = (userId: string, noteId: string) => {
+    const isPrivileged = ['user-rodrigo', 'user-nicolas', 'user-noemi'].includes(currentUser.id);
+    const isOwnNote = userId === currentUser.id || userId === firebaseUser?.uid;
+    if (!isPrivileged && !isOwnNote) {
+      alert('Solo podés marcar como lista una anotación propia.');
+      return;
+    }
+
+    const currentNote = (notes[userId] || []).find(note => note.id === noteId);
+    if (!currentNote) return;
+    const nextNote = { ...currentNote, isDone: !currentNote.isDone };
+
+    setNotes(previous => ({
+      ...previous,
+      [userId]: (previous[userId] || []).map(note => (note.id === noteId ? nextNote : note)),
+    }));
+    setSyncStatus('syncing');
+    void updateNoteInFirestore(userId, nextNote)
+      .then(success => {
+        if (!success) throw new Error('Error al actualizar la nota.');
+        setSyncStatus('synced');
+      })
+      .catch(error => {
+        console.warn('Firestore note update error:', error);
+        setSyncStatus('error');
+        setSyncError('Error al actualizar el estado de la nota en Firestore.');
+      });
+  };
+
   const deleteNote = (userId: string, noteId: string) => {
     setNotes(previous => ({
       ...previous,
@@ -802,6 +836,7 @@ setActiveView('inicio');
         notes,
         addNote,
         deleteNote,
+        toggleNoteDone,
         activeView,
         setActiveView,
         isModalOpen,
