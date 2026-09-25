@@ -89,4 +89,3 @@ export interface PersonNote {
 
 export type PersonNoteEditableFields = Pick<PersonNote, 'text' | 'color'>;
 export type ViewType = 'inicio' | 'pizarra' | 'bloqueos' | 'vencimientos' | 'historial' | 'equipo';
-

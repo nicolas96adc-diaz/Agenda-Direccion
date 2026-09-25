@@ -55,4 +55,3 @@ export const MeetingCard: React.FC<MeetingCardProps> = ({ meeting, attendance, c
     </article>
   );
 };
-

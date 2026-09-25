@@ -86,4 +86,3 @@ export function getPermissions(user: UserProfile, task?: Task | null): TaskPermi
 function isAdminForUser(user: UserProfile): boolean {
   return user.id === 'user-rodrigo' || user.accessLevel === 'Administración total';
 }
-

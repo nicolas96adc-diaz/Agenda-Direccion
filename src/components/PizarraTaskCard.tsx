@@ -118,4 +118,3 @@ export const PizarraTaskCard: React.FC<PizarraTaskCardProps> = ({
     </div>
   );
 };
-

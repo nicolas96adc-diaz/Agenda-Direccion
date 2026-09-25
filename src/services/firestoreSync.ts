@@ -160,4 +160,3 @@ export async function fetchAllFromFirestore(): Promise<{ tasks: Task[]; users: U
     return { tasks, users: [], notes, attendance };
   } catch (error) { console.warn('[Firestore] fetchAllFromFirestore error:', error); return null; }
 }
-

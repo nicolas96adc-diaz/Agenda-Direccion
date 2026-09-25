@@ -733,4 +733,3 @@ export const PizarraView: React.FC = () => {
     </div>
   );
 };
-

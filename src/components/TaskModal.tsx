@@ -581,4 +581,3 @@ export const TaskModal: React.FC = () => {
     </div>
   );
 };
-
