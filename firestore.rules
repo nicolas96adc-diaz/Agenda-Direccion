@@ -15,7 +15,13 @@ service cloud.firestore {
     function privileged() { return admin() || operations(); }
 
     function has(data, key) { return data.keys().hasAll([key]); }
-    function unassigned(data) { return !has(data, 'assigneeUid') && (!has(data, 'assignee') || data.assignee == ''); }
+    // Matches the legacy values the client already presents as "Disponible".
+    // Keeping this normalization in the rules prevents a task from looking
+    // claimable in the UI while Firestore rejects the assignment.
+    function unassigned(data) {
+      return !has(data, 'assigneeUid') &&
+        (!has(data, 'assignee') || data.assignee in ['', 'Disponible', 'disponible', 'Sin asignar', 'sin asignar', 'Sin responsable', 'sin responsable']);
+    }
     function validStatus(data) { return has(data, 'status') && data.status in ['PENDIENTE', 'EN_PROCESO', 'BLOQUEADA', 'RESUELTA']; }
     function actor(data) { return has(data, 'lastModifiedByUid') && data.lastModifiedByUid == request.auth.uid && has(data, 'updatedAt'); }
     function owns(data) { return has(data, 'assigneeUid') && data.assigneeUid == request.auth.uid; }
@@ -47,6 +53,7 @@ service cloud.firestore {
     function claim() {
       return unassigned(resource.data) &&
         has(request.resource.data, 'assigneeUid') && request.resource.data.assigneeUid == request.auth.uid &&
+        activeAssignee(request.resource.data) &&
         request.resource.data.status in ['PENDIENTE', 'EN_PROCESO'];
     }
     function release() {
@@ -124,3 +131,4 @@ service cloud.firestore {
     match /{document=**} { allow read, write: if false; }
   }
 }
+
