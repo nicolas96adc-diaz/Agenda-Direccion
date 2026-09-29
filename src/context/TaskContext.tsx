@@ -354,7 +354,17 @@ setActiveView('inicio');
     setEditingTask(null);
   };
 
-  const persistTask = (task: Task, errorMessage: string) => {
+  /**
+   * Keep the UI responsive, but never leave a local change displayed when
+   * Firestore rejects it. The realtime listener is not a reliable rollback on
+   * its own because it can deliver its previous snapshot before the write
+   * failure is reported.
+   */
+  const persistTask = (
+    task: Task,
+    errorMessage: string,
+    rollback?: () => void
+  ) => {
     setSyncStatus('syncing');
     setSyncError(null);
     void saveTaskToFirestore(task)
@@ -364,6 +374,7 @@ setActiveView('inicio');
       })
       .catch(error => {
         console.warn(errorMessage, error);
+        rollback?.();
         setSyncStatus('error');
         setSyncError(errorMessage);
       });
@@ -424,7 +435,9 @@ setActiveView('inicio');
 
     setTasks(previous => [newTask, ...previous]);
     closeModal();
-    persistTask(newTask, 'Error al crear la tarea en Firestore.');
+    persistTask(newTask, 'Error al crear la tarea en Firestore.', () => {
+      setTasks(previous => previous.filter(task => task.id !== newTask.id));
+    });
   };
 
   const updateTask = (
@@ -558,7 +571,9 @@ setActiveView('inicio');
 
     setTasks(previous => previous.map(task => (task.id === id ? nextTask : task)));
     if (shouldCloseModal) closeModal();
-    persistTask(nextTask, 'Error al actualizar la tarea en Firestore.');
+    persistTask(nextTask, 'Error al actualizar la tarea en Firestore.', () => {
+      setTasks(previous => previous.map(task => (task.id === id ? targetTask : task)));
+    });
   };
 
   const reassignTask = (id: string, assigneeId: string) => {
@@ -602,7 +617,9 @@ setActiveView('inicio');
     };
 
     setTasks(previous => previous.map(task => (task.id === id ? nextTask : task)));
-    persistTask(nextTask, 'Error al derivar la tarea en Firestore.');
+    persistTask(nextTask, 'Error al derivar la tarea en Firestore.', () => {
+      setTasks(previous => previous.map(task => (task.id === id ? targetTask : task)));
+    });
   };
 
   const claimTask = (id: string, _userToClaim?: UserProfile) => {
@@ -639,7 +656,9 @@ setActiveView('inicio');
     };
 
     setTasks(previous => previous.map(task => (task.id === id ? nextTask : task)));
-    persistTask(nextTask, 'Error al tomar la tarea en Firestore.');
+    persistTask(nextTask, 'Error al tomar la tarea en Firestore.', () => {
+      setTasks(previous => previous.map(task => (task.id === id ? targetTask : task)));
+    });
   };
 
   const releaseTask = (id: string) => {
@@ -676,7 +695,9 @@ setActiveView('inicio');
     };
 
     setTasks(previous => previous.map(task => (task.id === id ? nextTask : task)));
-    persistTask(nextTask, 'Error al liberar la tarea en Firestore.');
+    persistTask(nextTask, 'Error al liberar la tarea en Firestore.', () => {
+      setTasks(previous => previous.map(task => (task.id === id ? targetTask : task)));
+    });
   };
 
   const deleteTask = (id: string) => {
@@ -1030,3 +1051,4 @@ export const useTasks = (): TaskContextType => {
   }
   return context;
 };
+
