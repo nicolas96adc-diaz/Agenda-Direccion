@@ -5,7 +5,7 @@ import { INITIAL_TASKS } from '../data/initialTasks';
 import { INITIAL_USERS } from '../data/users';
 import { getTodayDateString, sortTasksByPriorityAndTime } from '../utils/dateUtils';
 import { calculateTaskUrgencyScore } from '../utils/taskUrgency';
-import { getPermissions, TaskPermissions, isTaskAvailable } from '../utils/permissions';
+import { getPermissions, TaskPermissions, isLeadershipUser, isTaskAvailable } from '../utils/permissions';
 import {
   subscribeTasks,
   subscribeNotes,
@@ -703,7 +703,7 @@ setActiveView('inicio');
   const deleteTask = (id: string) => {
     const targetTask = tasks.find(task => task.id === id);
     if (!targetTask || !getPermissions(currentUser, targetTask).canDeleteTask) {
-      alert('Solo Rodrigo puede eliminar tareas.');
+      alert('Solo Nicolás, Noemí o Rodrigo pueden eliminar tareas.');
       return;
     }
 
@@ -830,6 +830,16 @@ setActiveView('inicio');
   };
 
   const deleteNote = (userId: string, noteId: string) => {
+    if (!firebaseUser || !isLoggedIn) {
+      alert('Necesitás una sesión válida para eliminar una anotación.');
+      return;
+    }
+    const note = (notes[userId] || []).find(item => item.id === noteId);
+    const canManageNote = isLeadershipUser(currentUser) || (!!note?.authorUid && note.authorUid === firebaseUser.uid);
+    if (!note || !canManageNote) {
+      alert('No tenés permiso para eliminar esta anotación.');
+      return;
+    }
     setNotes(previous => ({
       ...previous,
       [userId]: (previous[userId] || []).filter(note => note.id !== noteId),
@@ -856,8 +866,9 @@ setActiveView('inicio');
     const note = (notes[userId] || []).find(item => item.id === noteId);
     const text = updates.text.trim();
     const color = updates.color === 'blue' || updates.color === 'slate' ? updates.color : 'yellow';
-    if (!note || !note.authorUid || note.authorUid !== firebaseUser.uid) {
-      alert('Solo quien creó esta anotación puede editarla.');
+    const canManageNote = isLeadershipUser(currentUser) || (!!note?.authorUid && note.authorUid === firebaseUser.uid);
+    if (!note || !canManageNote) {
+      alert('Solo quien creó esta anotación o la dirección puede editarla.');
       return;
     }
     if (!text) {
@@ -890,7 +901,8 @@ setActiveView('inicio');
     }
 
     const note = (notes[userId] || []).find(item => item.id === noteId);
-    if (!note || !note.authorUid || note.authorUid !== firebaseUser.uid) {
+    const canManageNote = isLeadershipUser(currentUser) || (!!note?.authorUid && note.authorUid === firebaseUser.uid);
+    if (!note || !canManageNote) {
       alert('No tenés permiso para actualizar esta anotación.');
       return;
     }
