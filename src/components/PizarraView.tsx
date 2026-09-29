@@ -25,6 +25,7 @@ import { Task, UserProfile, TaskStatus, PersonNote } from '../types';
 import { findUserByNameOrAlias } from '../data/users';
 import { getTodayDateString, formatHumanDeadline, formatResponsibleLabel } from '../utils/dateUtils';
 import { calculateTaskUrgencyScore, getTaskVisuals } from '../utils/taskUrgency';
+import { isLeadershipUser } from '../utils/permissions';
 import { PizarraTaskCard } from './PizarraTaskCard';
 import { MeetingCard } from './MeetingCard';
 
@@ -582,7 +583,7 @@ export const PizarraView: React.FC = () => {
                     userNotes.map(note => {
                       const isYellow = note.color === 'yellow' || !note.color;
                       const isBlue = note.color === 'blue';
-                      const canEditNote = !!note.authorUid && note.authorUid === currentUser.uid;
+                      const canEditNote = isLeadershipUser(currentUser) || (!!note.authorUid && note.authorUid === currentUser.uid);
                       const isEditing = editingNote?.noteId === note.id && editingNote.userId === user.id;
 
                       const noteStyle = isYellow
@@ -733,3 +734,4 @@ export const PizarraView: React.FC = () => {
     </div>
   );
 };
+
