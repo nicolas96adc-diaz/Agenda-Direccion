@@ -92,10 +92,10 @@ service cloud.firestore {
         validStatus(request.resource.data) &&
         actor(request.resource.data) &&
         (
-          (groupMeeting(resource.data) && groupMeeting(request.resource.data) && owns(resource.data) && keepsMeetingOrganizer()) ||
+          (groupMeeting(resource.data) && groupMeeting(request.resource.data) && (privileged() || owns(resource.data)) && keepsMeetingOrganizer()) ||
           (!groupMeeting(resource.data) && (((privileged() || owns(resource.data)) && (keepsAssignment() || release() || reassign())) || claim()))
         );
-      allow delete: if admin();
+      allow delete: if privileged();
     }
 
     match /meetingAttendance/{attendanceId} {
@@ -120,8 +120,10 @@ service cloud.firestore {
         has(request.resource.data, 'authorName') && request.resource.data.authorName == profile().name &&
         (privileged() || (has(request.resource.data, 'userId') && (request.resource.data.userId == request.auth.uid || request.resource.data.userId == appUserId())));
       allow update: if active() &&
-        has(resource.data, 'authorUid') && resource.data.authorUid == request.auth.uid &&
-        has(resource.data, 'authorName') && resource.data.authorName == profile().name &&
+        (privileged() || (
+          has(resource.data, 'authorUid') && resource.data.authorUid == request.auth.uid &&
+          has(resource.data, 'authorName') && resource.data.authorName == profile().name
+        )) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'color', 'isCompleted']);
       allow delete: if active() && (privileged() || (has(resource.data, 'userId') && (resource.data.userId == request.auth.uid || resource.data.userId == appUserId())));
     }
