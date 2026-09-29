@@ -15,6 +15,7 @@ import { HistorialView } from './components/HistorialView';
 import { EquipoView } from './components/EquipoView';
 import { TaskModal } from './components/TaskModal';
 import { LoginView } from './components/LoginView';
+import { ReleaseNotesModal } from './components/ReleaseNotesModal';
 import { X } from 'lucide-react';
 
 const SIDEBAR_COLLAPSED_KEY = 'chutro_sidebar_collapsed';
@@ -106,6 +107,7 @@ const DashboardLayout: React.FC = () => {
 
       {/* Global Task Modal */}
       <TaskModal />
+      <ReleaseNotesModal />
     </div>
   );
 };

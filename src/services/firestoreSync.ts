@@ -10,6 +10,7 @@ export const NOTES_COLLECTION = 'notes';
 export const MEMORIAS_COLLECTION = 'memorias';
 export const USERS_COLLECTION = 'users';
 export const MEETING_ATTENDANCE_COLLECTION = 'meetingAttendance';
+export const RELEASE_ACKNOWLEDGEMENTS_COLLECTION = 'releaseAcknowledgements';
 
 export interface FirestoreNoteDoc {
   id: string;
@@ -22,6 +23,11 @@ export interface FirestoreNoteDoc {
   isCompleted?: boolean;
 }
 export interface FirestoreMeetingAttendanceDoc extends MeetingAttendance {}
+export interface FirestoreReleaseAcknowledgement {
+  uid: string;
+  version: string;
+  acknowledgedAt: string;
+}
 export interface FirestoreUserProfile { uid: string; email: string; appUserId: string; name: string; role: string; active: boolean; shortName?: string; accessLevel?: UserProfile['accessLevel']; }
 
 function parseNoteColor(color?: string): 'yellow' | 'blue' | 'slate' { return color === 'blue' || color === 'slate' ? color : 'yellow'; }
@@ -91,6 +97,31 @@ export async function getUserProfileByUid(uid: string): Promise<UserProfile | nu
   };
   console.info('[LOGIN_TRACE] PROFILE_RESULT', { pathRead: primaryPath, profile });
   return profile;
+}
+
+function releaseAcknowledgementId(uid: string, version: string) {
+  return `${uid}_${version}`;
+}
+
+/** Reads one acknowledgement only; no profile or release history is exposed to the client. */
+export async function hasAcknowledgedRelease(uid: string, version: string): Promise<boolean> {
+  const snapshot = await getDoc(
+    doc(db, RELEASE_ACKNOWLEDGEMENTS_COLLECTION, releaseAcknowledgementId(uid, version)),
+  );
+  return snapshot.exists();
+}
+
+/** Stores the acknowledgement separately from /users so profile permissions stay unchanged. */
+export async function acknowledgeRelease(uid: string, version: string): Promise<void> {
+  const acknowledgement: FirestoreReleaseAcknowledgement = {
+    uid,
+    version,
+    acknowledgedAt: new Date().toISOString(),
+  };
+  await setDoc(
+    doc(db, RELEASE_ACKNOWLEDGEMENTS_COLLECTION, releaseAcknowledgementId(uid, version)),
+    acknowledgement,
+  );
 }
 
 export function subscribeTasks(onUpdate: (tasks: Task[]) => void, onError?: (err: unknown) => void) {

@@ -128,6 +128,19 @@ service cloud.firestore {
       allow delete: if active() && (privileged() || (has(resource.data, 'userId') && (resource.data.userId == request.auth.uid || resource.data.userId == appUserId())));
     }
 
+    // One acknowledgement per authenticated person and release. This is kept
+    // outside /users so a team member can never alter their own profile.
+    match /releaseAcknowledgements/{acknowledgementId} {
+      allow get: if active() && resource.data.uid == request.auth.uid;
+      allow list: if false;
+      allow create: if active() &&
+        request.resource.data.uid == request.auth.uid &&
+        has(request.resource.data, 'version') &&
+        acknowledgementId == request.auth.uid + '_' + request.resource.data.version &&
+        has(request.resource.data, 'acknowledgedAt');
+      allow update, delete: if false;
+    }
+
     match /memorias/{id} { allow read: if active(); allow write: if privileged(); }
     match /conversaciones/{id} { allow read, write: if privileged(); }
     match /{document=**} { allow read, write: if false; }
