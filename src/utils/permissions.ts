@@ -33,24 +33,30 @@ export function isTaskAvailable(task?: Task | null): boolean {
   return !assignee || assignee === 'disponible' || assignee === 'sin asignar' || assignee === 'sin responsable';
 }
 
+/** The three people who can administer work created by the whole team. */
+export function isLeadershipUser(user: UserProfile): boolean {
+  return ['user-nicolas', 'user-noemi', 'user-rodrigo'].includes(user.id);
+}
+
 export function getPermissions(user: UserProfile, task?: Task | null): TaskPermissions {
   const isGroupMeeting = task?.kind === 'REUNION_GRUPO';
   const isMeetingOrganizer = !!task && !!user.uid && task.organizerUid === user.uid;
   if (isGroupMeeting) {
+    const isLeadership = isLeadershipUser(user);
     return {
       canCreateTask: true,
       canManageTeam: false,
-      canEditTask: isMeetingOrganizer,
+      canEditTask: isMeetingOrganizer || isLeadership,
       canChangeAssignee: false,
       canResolveTask: false,
       canBlockTask: false,
-      canDeleteTask: isAdminForUser(user),
+      canDeleteTask: isLeadership,
       canToggleFocus: false,
-      canAddCommentOrNote: isMeetingOrganizer,
+      canAddCommentOrNote: isMeetingOrganizer || isLeadership,
       canClaimTask: false,
       canReleaseTask: false,
-      isReadOnly: !isMeetingOrganizer,
-      restrictionReason: !isMeetingOrganizer ? 'Solo el organizador puede modificar esta reunión.' : undefined,
+      isReadOnly: !isMeetingOrganizer && !isLeadership,
+      restrictionReason: !isMeetingOrganizer && !isLeadership ? 'Solo el organizador o la dirección puede modificar esta reunión.' : undefined,
     };
   }
   const isAdmin = user.id === 'user-rodrigo' || user.accessLevel === 'Administración total';
@@ -70,7 +76,7 @@ export function getPermissions(user: UserProfile, task?: Task | null): TaskPermi
     canChangeAssignee: isAdmin || isOperations,
     canResolveTask: canResolve,
     canBlockTask: canBlock,
-    canDeleteTask: isAdmin,
+    canDeleteTask: isLeadershipUser(user),
     canToggleFocus: isAdmin || isOperations,
     canAddCommentOrNote: canEditOwn,
     canClaimTask: !task || isTaskAvailable(task),
@@ -86,3 +92,4 @@ export function getPermissions(user: UserProfile, task?: Task | null): TaskPermi
 function isAdminForUser(user: UserProfile): boolean {
   return user.id === 'user-rodrigo' || user.accessLevel === 'Administración total';
 }
+
