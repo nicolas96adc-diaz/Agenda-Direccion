@@ -2,6 +2,17 @@
 
 La app se construye con Vite y se sirve como SPA mediante Caddy. El contenedor se reinicia automáticamente con Docker (`unless-stopped`).
 
+## Publicar un release
+
+El único flujo habitual de producción es el workflow manual **Deploy production** de GitHub Actions. Se ejecuta sólo desde `main` y exige escribir `DEPLOY` como confirmación. Primero valida el build, el acceso SSH y la cuenta de servicio de Firebase; después actualiza el servicio `clinica-chutro` con Docker Compose, publica únicamente `firestore.rules` y comprueba la URL pública.
+
+Configuración única en GitHub → Settings → Secrets and variables → Actions:
+
+- Secrets: `HOSTINGER_VPS_HOST`, `HOSTINGER_VPS_USER`, `HOSTINGER_VPS_SSH_KEY`, `HOSTINGER_VPS_KNOWN_HOSTS`, `FIREBASE_SERVICE_ACCOUNT_CLINICA_CHUTRO`.
+- Variable opcional: `HOSTINGER_VPS_APP_DIR` si la carpeta de la app en la VPS no se llama `Agenda-Direccion`.
+
+No se publica automáticamente con cada push: requiere autorización explícita mediante la ejecución manual del workflow.
+
 ## Primera instalación
 
 En la VPS (Ubuntu/Debian), instalá Docker Engine y el plugin Docker Compose si todavía no están instalados. Luego cloná el repositorio:

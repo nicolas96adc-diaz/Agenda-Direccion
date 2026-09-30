@@ -1,0 +1,171 @@
+name: Deploy production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_deploy:
+        description: "Escribí DEPLOY para confirmar la publicación en producción"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clinica-chutro-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy Clínica Chutro
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      FIREBASE_PROJECT_ID: clinica-chutro
+      # El despliegue existente clona el repositorio con este nombre en la VPS.
+      # Puede ajustarse sin tocar código mediante una variable de Actions.
+      VPS_APP_DIR: ${{ vars.HOSTINGER_VPS_APP_DIR || 'Agenda-Direccion' }}
+    steps:
+      - name: Require explicit confirmation
+        if: inputs.confirm_deploy != 'DEPLOY'
+        run: |
+          echo 'La confirmación debe ser exactamente DEPLOY.'
+          exit 1
+
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Validate application
+        run: |
+          bun run lint
+          bun run build
+
+      - name: Validate required secrets
+        env:
+          HOSTINGER_VPS_HOST: ${{ secrets.HOSTINGER_VPS_HOST }}
+          HOSTINGER_VPS_USER: ${{ secrets.HOSTINGER_VPS_USER }}
+          HOSTINGER_VPS_SSH_KEY: ${{ secrets.HOSTINGER_VPS_SSH_KEY }}
+          HOSTINGER_VPS_KNOWN_HOSTS: ${{ secrets.HOSTINGER_VPS_KNOWN_HOSTS }}
+          FIREBASE_SERVICE_ACCOUNT_CLINICA_CHUTRO: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CLINICA_CHUTRO }}
+        run: |
+          set -euo pipefail
+          for secret_name in \
+            HOSTINGER_VPS_HOST \
+            HOSTINGER_VPS_USER \
+            HOSTINGER_VPS_SSH_KEY \
+            HOSTINGER_VPS_KNOWN_HOSTS \
+            FIREBASE_SERVICE_ACCOUNT_CLINICA_CHUTRO; do
+            if [ -z "${!secret_name}" ]; then
+              echo "Falta el secret requerido: ${secret_name}"
+              exit 1
+            fi
+          done
+          printf '%s' "$HOSTINGER_VPS_SSH_KEY" > deploy_key
+          chmod 600 deploy_key
+          ssh-keygen -y -f deploy_key >/dev/null
+          rm deploy_key
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_CLINICA_CHUTRO" | jq -e \
+            '.type == "service_account" and (.project_id == "clinica-chutro") and (.private_key | type == "string")' \
+            >/dev/null
+
+      - name: Configure trusted SSH host
+        env:
+          HOSTINGER_VPS_SSH_KEY: ${{ secrets.HOSTINGER_VPS_SSH_KEY }}
+          HOSTINGER_VPS_KNOWN_HOSTS: ${{ secrets.HOSTINGER_VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$HOSTINGER_VPS_SSH_KEY" > ~/.ssh/clinica-chutro_deploy
+          chmod 600 ~/.ssh/clinica-chutro_deploy
+          printf '%s\n' "$HOSTINGER_VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Verify VPS access before publishing
+        env:
+          HOSTINGER_VPS_HOST: ${{ secrets.HOSTINGER_VPS_HOST }}
+          HOSTINGER_VPS_USER: ${{ secrets.HOSTINGER_VPS_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/clinica-chutro_deploy \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            "$HOSTINGER_VPS_USER@$HOSTINGER_VPS_HOST" 'test -n "${HOME:-}" && command -v docker >/dev/null && docker compose version >/dev/null'
+
+      - name: Authenticate Firebase service account
+        id: firebase_auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CLINICA_CHUTRO }}
+
+      - name: Capture release identity
+        id: release
+        run: |
+          set -euo pipefail
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          version=$(sed -nE "s/^export const APP_VERSION = ['\"]([^'\"]+)['\"].*/\1/p" src/config/app.ts)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy main to the existing Docker Compose service
+        env:
+          EXPECTED_COMMIT: ${{ steps.release.outputs.commit }}
+          HOSTINGER_VPS_HOST: ${{ secrets.HOSTINGER_VPS_HOST }}
+          HOSTINGER_VPS_USER: ${{ secrets.HOSTINGER_VPS_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/clinica-chutro_deploy \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            "$HOSTINGER_VPS_USER@$HOSTINGER_VPS_HOST" \
+            bash -s -- "$VPS_APP_DIR" "$EXPECTED_COMMIT" <<'REMOTE'
+          set -euo pipefail
+          app_dir="$1"
+          expected_commit="$2"
+          case "$app_dir" in
+            /*) ;;
+            *'..'*|"") echo 'Ruta de aplicación inválida.' >&2; exit 1 ;;
+            *) app_dir="$HOME/$app_dir" ;;
+          esac
+          test -f "$app_dir/docker-compose.yml"
+          cd "$app_dir"
+          git status --porcelain | grep -q . && { echo 'La VPS tiene cambios locales; se cancela para no sobrescribirlos.' >&2; exit 1; } || true
+          git fetch origin main
+          git checkout main
+          git pull --ff-only origin main
+          deployed_commit="$(git rev-parse HEAD)"
+          test "$deployed_commit" = "$expected_commit" || {
+            echo "La VPS quedó en $deployed_commit y el release solicitado es $expected_commit." >&2
+            exit 1
+          }
+          docker compose up -d --build --remove-orphans
+          docker compose ps
+          echo "DEPLOYED_COMMIT=$deployed_commit"
+          REMOTE
+
+      - name: Publish Firestore rules only
+        run: npx -y firebase-tools@latest deploy --only firestore:rules --project "$FIREBASE_PROJECT_ID" --non-interactive
+
+      - name: Verify public production
+        env:
+          EXPECTED_VERSION: ${{ steps.release.outputs.version }}
+          EXPECTED_COMMIT: ${{ steps.release.outputs.commit }}
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent --retry 5 --retry-all-errors --connect-timeout 10 --max-time 30 \
+            -D response-headers.txt -o index.html https://clinica.gestionenvivo.com/
+          grep -Eq '^HTTP/[0-9.]+ 200' response-headers.txt
+          asset_path=$(grep -oE '/assets/index-[^" ]+\.js' index.html | head -n 1)
+          test -n "$asset_path"
+          curl --fail --show-error --silent --connect-timeout 10 --max-time 30 \
+            "https://clinica.gestionenvivo.com${asset_path}" -o app.js
+          grep -Fq "$EXPECTED_VERSION" app.js
+          echo "Producción verificada: commit $EXPECTED_COMMIT · versión $EXPECTED_VERSION"
