@@ -207,7 +207,7 @@ export const PizarraView: React.FC = () => {
 
     addTask({
       title,
-      priority: 'NO_TAN_IMPORTANTE',
+      priority: 'NORMAL',
       status: 'PENDIENTE',
       dueDate: todayStr,
       dueTime: '18:00',
@@ -416,13 +416,13 @@ export const PizarraView: React.FC = () => {
           const activeTasks = matchingTasks.filter(t => t.status !== 'RESUELTA');
           const resolvedTasks = matchingTasks.filter(t => t.status === 'RESUELTA');
 
-          // Sort active tasks by urgency: Overdue/Blocked/Critical first
+          // Sort active tasks by urgency: overdue, blocked, and critical first.
           const sortedActiveTasks = [...activeTasks].sort((a, b) => {
             return calculateTaskUrgencyScore(b, todayStr) - calculateTaskUrgencyScore(a, todayStr);
           });
 
           const blockedCount = activeTasks.filter(t => t.status === 'BLOQUEADA').length;
-          const importantCount = activeTasks.filter(t => t.priority === 'IMPORTANTE').length;
+          const criticalCount = activeTasks.filter(t => t.priority === 'CRITICA').length;
 
           const userNotes = (notes[user.id] || []).filter(n => {
             if (!searchTerm) return true;
@@ -465,7 +465,7 @@ export const PizarraView: React.FC = () => {
                     </div>
 
                     {/* Urgent / Blocked indicators if any */}
-                    {(blockedCount > 0 || importantCount > 0) && (
+                    {(blockedCount > 0 || criticalCount > 0) && (
                       <div className="flex items-center gap-2 mt-3 flex-wrap">
                         {blockedCount > 0 && (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200/80 shadow-2xs">
@@ -473,10 +473,10 @@ export const PizarraView: React.FC = () => {
                             <span>{blockedCount} {blockedCount === 1 ? 'bloqueo' : 'bloqueos'}</span>
                           </span>
                         )}
-                        {importantCount > 0 && (
+                        {criticalCount > 0 && (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200/80 shadow-2xs">
                             <AlertTriangle className="w-3.5 h-3.5 stroke-[2.4]" />
-                            <span>{importantCount} {importantCount === 1 ? 'importante' : 'importantes'}</span>
+                            <span>{criticalCount} {criticalCount === 1 ? 'crítica' : 'críticas'}</span>
                           </span>
                         )}
                       </div>
@@ -609,8 +609,8 @@ export const PizarraView: React.FC = () => {
                                   <div className="flex flex-wrap items-center justify-between gap-2">
                                     <div className="flex items-center gap-1.5" aria-label="Prioridad de la anotación">
                                       {([
-                                        ['red', 'Rojo: importante', 'bg-rose-200 border-rose-400'],
-                                        ['yellow', 'Amarillo: no tan importante', 'bg-amber-200 border-amber-400'],
+                                        ['red', 'Rojo: crítica', 'bg-rose-200 border-rose-400'],
+                                        ['yellow', 'Amarillo: normal', 'bg-amber-200 border-amber-400'],
                                       ] as const).map(([color, label, swatchClass]) => (
                                         <button
                                           key={color}

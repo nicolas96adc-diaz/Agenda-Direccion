@@ -29,7 +29,7 @@ export interface TaskUrgencyVisuals {
  * - tarea vencida (dueDate < today)
  * - bloqueada (status === 'BLOQUEADA')
  * - vence hoy (dueDate === today)
- * - prioridad (IMPORTANTE > NO_TAN_IMPORTANTE)
+ * - prioridad (CRITICA > NORMAL)
  * - falta de avance (status === 'PENDIENTE')
  *
  * Mandatory rule: "Una tarea vencida y bloqueada debe ser siempre la más visible."
@@ -43,7 +43,7 @@ export function calculateTaskUrgencyScore(task: Task, todayStr: string = getToda
   const isBlocked = task.status === 'BLOQUEADA';
   const isOverdue = !!(task.dueDate && task.dueDate < todayStr);
   const isDueToday = task.dueDate === todayStr;
-  const isCritical = task.priority === 'IMPORTANTE';
+  const isCritical = task.priority === 'CRITICA';
   const isPending = task.status === 'PENDIENTE';
 
   // Overdue AND Blocked = Absolute highest priority
@@ -87,7 +87,7 @@ export function getTaskVisuals(task: Task, todayStr: string = getTodayDateString
   const isResolved = task.status === 'RESUELTA';
   const isOverdue = !!(task.dueDate && task.dueDate < todayStr);
   const isDueToday = task.dueDate === todayStr;
-  const isCritical = task.priority === 'IMPORTANTE';
+  const isCritical = task.priority === 'CRITICA';
   const isOverdueAndBlocked = isOverdue && isBlocked;
 
   const score = calculateTaskUrgencyScore(task, todayStr);
@@ -140,7 +140,7 @@ export function getTaskVisuals(task: Task, todayStr: string = getTodayDateString
     bottomLeftClass = designTokens.state.blocked.bottomText;
   } else if (isOverdue) {
     colorTheme = 'red';
-    badgeLabel = isCritical ? 'IMPORTANTE · VENCIDA' : 'VENCIDA';
+    badgeLabel = isCritical ? 'CRÍTICA · VENCIDA' : 'VENCIDA';
     badgeIconType = 'alert';
     badgeClass = designTokens.state.critical.badge;
     leftBarClass = designTokens.state.critical.leftBar;
@@ -150,9 +150,9 @@ export function getTaskVisuals(task: Task, todayStr: string = getTodayDateString
     bottomLeftText = deadline.text;
     bottomLeftClass = designTokens.state.critical.bottomText;
   } else if (isCritical) {
-    // Important priority requiring prompt attention
+    // Critical priority requiring prompt attention
     colorTheme = 'red';
-    badgeLabel = 'IMPORTANTE';
+    badgeLabel = 'CRÍTICA';
     badgeIconType = 'alert';
     badgeClass = designTokens.state.critical.badge;
     leftBarClass = designTokens.state.critical.leftBar;
@@ -174,9 +174,9 @@ export function getTaskVisuals(task: Task, todayStr: string = getTodayDateString
     bottomLeftText = deadline.text;
     bottomLeftClass = designTokens.state.info.bottomText;
   } else {
-    // The non-important priority always uses the amber palette.
+    // Normal priority always uses the amber palette.
     colorTheme = 'amber';
-    badgeLabel = 'NO TAN IMPORTANTE';
+    badgeLabel = 'NORMAL';
     badgeIconType = 'clock';
     badgeClass = designTokens.state.warning.badge;
     leftBarClass = designTokens.state.warning.leftBar;

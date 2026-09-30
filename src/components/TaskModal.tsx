@@ -35,7 +35,7 @@ export const TaskModal: React.FC = () => {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState<Priority>('NO_TAN_IMPORTANTE');
+  const [priority, setPriority] = useState<Priority>('NORMAL');
   const [status, setStatus] = useState<TaskStatus>('PENDIENTE');
   const [dueDate, setDueDate] = useState(getTodayDateString());
   const [dueTime, setDueTime] = useState('12:00');
@@ -77,7 +77,7 @@ export const TaskModal: React.FC = () => {
 
     setTitle('');
     setDescription('');
-    setPriority('NO_TAN_IMPORTANTE');
+    setPriority('NORMAL');
     setStatus(defaultModalStatus);
     setDueDate(getTodayDateString());
     setDueTime('12:00');
@@ -271,8 +271,8 @@ export const TaskModal: React.FC = () => {
                 onChange={event => setPriority(event.target.value as Priority)}
                 className="w-full px-3 py-2 border rounded-xl text-xs sm:text-sm font-semibold bg-slate-50/70 border-slate-200/90 disabled:bg-slate-100 disabled:cursor-not-allowed"
               >
-                <option value="IMPORTANTE">Rojo — Importante</option>
-                <option value="NO_TAN_IMPORTANTE">Amarillo — No tan importante</option>
+                <option value="CRITICA">Rojo — Crítica</option>
+                <option value="NORMAL">Amarillo — Normal</option>
               </select>
             </div>
 

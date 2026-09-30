@@ -30,6 +30,7 @@ service cloud.firestore {
         (!has(data, 'assignee') || data.assignee in ['', 'Disponible', 'disponible', 'Sin asignar', 'sin asignar', 'Sin responsable', 'sin responsable']);
     }
     function validStatus(data) { return has(data, 'status') && data.status in ['PENDIENTE', 'EN_PROCESO', 'BLOQUEADA', 'RESUELTA']; }
+    function validPriority(data) { return has(data, 'priority') && data.priority in ['NORMAL', 'CRITICA']; }
     function actor(data) { return has(data, 'lastModifiedByUid') && data.lastModifiedByUid == request.auth.uid && has(data, 'updatedAt'); }
     // Older tasks predate assigneeUid. Their immutable assignee name/id is
     // matched to the signed-in profile only until the task is saved again.
@@ -111,12 +112,14 @@ service cloud.firestore {
       allow create: if active() &&
         has(request.resource.data, 'id') && request.resource.data.id == taskId &&
         validStatus(request.resource.data) &&
+        validPriority(request.resource.data) &&
         actor(request.resource.data) &&
         has(request.resource.data, 'createdByUid') && request.resource.data.createdByUid == request.auth.uid &&
         ((!groupMeeting(request.resource.data) && unassigned(request.resource.data)) || validGroupMeeting(request.resource.data));
       allow update: if active() &&
         immutableTask() &&
         validStatus(request.resource.data) &&
+        validPriority(request.resource.data) &&
         actor(request.resource.data) &&
         (
           (groupMeeting(resource.data) && groupMeeting(request.resource.data) && (privileged() || owns(resource.data)) && keepsMeetingOrganizer()) ||

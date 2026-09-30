@@ -84,9 +84,9 @@ export const HistorialView: React.FC = () => {
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200">
                           <CheckCircle2 className="w-3 h-3" /> ✓ Listo
                         </span>
-                        {task.priority === 'IMPORTANTE' && (
+                        {task.priority === 'CRITICA' && (
                           <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-rose-50 text-rose-700 border border-rose-200">
-                            Importante
+                            Crítica
                           </span>
                         )}
                       </div>

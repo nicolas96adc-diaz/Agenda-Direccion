@@ -27,12 +27,12 @@ import { auth, onFirebaseAuthStateChanged, signOutFirebase } from '../lib/fireba
 export type SyncStatus = 'synced' | 'syncing' | 'error' | 'offline';
 
 const LEGACY_PRIORITY: Record<string, Priority> = {
-  CRITICA: 'IMPORTANTE',
-  ALTA: 'IMPORTANTE',
-  BAJA: 'NO_TAN_IMPORTANTE',
-  NORMAL: 'NO_TAN_IMPORTANTE',
-  IMPORTANTE: 'IMPORTANTE',
-  NO_TAN_IMPORTANTE: 'NO_TAN_IMPORTANTE',
+  CRITICA: 'CRITICA',
+  ALTA: 'CRITICA',
+  BAJA: 'NORMAL',
+  NORMAL: 'NORMAL',
+  IMPORTANTE: 'CRITICA',
+  NO_TAN_IMPORTANTE: 'NORMAL',
 };
 
 /** Old task documents were stored before audit/status fields existed. Normalize
@@ -44,7 +44,7 @@ const migrateTaskStatus = (task: Task): Task => {
     ...task,
     id: legacy.id || `legacy-${fallbackDate}`,
     title: legacy.title || 'Tarea sin título',
-    priority: LEGACY_PRIORITY[legacy.priority || ''] || 'NO_TAN_IMPORTANTE',
+    priority: LEGACY_PRIORITY[(legacy.priority || '').toUpperCase()] || 'NORMAL',
     status: (legacy.status as string) === 'EN_CURSO'
       ? 'EN_PROCESO'
       : ['PENDIENTE', 'EN_PROCESO', 'BLOQUEADA', 'RESUELTA'].includes(legacy.status || '')

@@ -156,8 +156,8 @@ export function getTaskDueCategory(task: Task, todayStr: string = getTodayDateSt
 }
 
 const PRIORITY_ORDER: Record<Priority, number> = {
-  IMPORTANTE: 2,
-  NO_TAN_IMPORTANTE: 1,
+  CRITICA: 2,
+  NORMAL: 1,
 };
 
 export function sortTasksByPriorityAndTime(tasks: Task[]): Task[] {

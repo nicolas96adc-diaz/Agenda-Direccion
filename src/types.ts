@@ -1,5 +1,5 @@
-/** The only two operational priority levels shown in the product. */
-export type Priority = 'IMPORTANTE' | 'NO_TAN_IMPORTANTE';
+/** The only two operational priority levels persisted by the product. */
+export type Priority = 'NORMAL' | 'CRITICA';
 
 export type TaskStatus = 'PENDIENTE' | 'EN_PROCESO' | 'BLOQUEADA' | 'RESUELTA';
 

@@ -23,7 +23,7 @@
         },
         "priority": {
           "type": "string",
-          "description": "Priority: urgente, alta, media, baja"
+          "description": "Priority: NORMAL or CRITICA"
         },
         "category": {
           "type": "string",
