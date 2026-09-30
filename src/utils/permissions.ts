@@ -38,6 +38,15 @@ export function isLeadershipUser(user: UserProfile): boolean {
   return ['user-nicolas', 'user-noemi', 'user-rodrigo'].includes(user.id);
 }
 
+/**
+ * Assignment authority is configured on the active Firestore profile.
+ * This deliberately stays separate from leadership-only actions such as
+ * deleting tasks or notes.
+ */
+export function canAssignOrDeriveTasks(user: UserProfile): boolean {
+  return user.active && ['Administración total', 'Dirección'].includes(user.accessLevel);
+}
+
 export function getPermissions(user: UserProfile, task?: Task | null): TaskPermissions {
   const isGroupMeeting = task?.kind === 'REUNION_GRUPO';
   const isMeetingOrganizer = !!task && !!user.uid && task.organizerUid === user.uid;
@@ -73,7 +82,7 @@ export function getPermissions(user: UserProfile, task?: Task | null): TaskPermi
     canCreateTask: true,
     canManageTeam: false,
     canEditTask: canEditOwn,
-    canChangeAssignee: isAdmin || isOperations,
+    canChangeAssignee: canAssignOrDeriveTasks(user),
     canResolveTask: canResolve,
     canBlockTask: canBlock,
     canDeleteTask: isLeadershipUser(user),

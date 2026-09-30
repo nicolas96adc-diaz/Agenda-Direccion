@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { User } from 'firebase/auth';
-import { MeetingAttendance, Task, TaskStatus, ViewType, UserProfile, PersonNote, PersonNoteEditableFields } from '../types';
+import { MeetingAttendance, Task, TaskStatus, ViewType, UserProfile, PersonNote, PersonNoteEditableFields, Priority } from '../types';
 import { INITIAL_TASKS } from '../data/initialTasks';
 import { INITIAL_USERS } from '../data/users';
 import { getTodayDateString, sortTasksByPriorityAndTime } from '../utils/dateUtils';
 import { calculateTaskUrgencyScore } from '../utils/taskUrgency';
-import { getPermissions, TaskPermissions, isLeadershipUser, isTaskAvailable } from '../utils/permissions';
+import { canAssignOrDeriveTasks, getPermissions, TaskPermissions, isLeadershipUser, isTaskAvailable } from '../utils/permissions';
 import {
   subscribeTasks,
   subscribeNotes,
@@ -20,17 +20,52 @@ import {
   cancelMeetingAttendance,
   fetchAllFromFirestore,
   getUserProfileByUid,
+  getActiveUserProfiles,
 } from '../services/firestoreSync';
 import { auth, onFirebaseAuthStateChanged, signOutFirebase } from '../lib/firebase';
 
 export type SyncStatus = 'synced' | 'syncing' | 'error' | 'offline';
 
-const migrateTaskStatus = (task: Task): Task =>
-  (task.status as unknown as string) === 'EN_CURSO'
-    ? { ...task, status: 'EN_PROCESO' }
-    : task;
+const LEGACY_PRIORITY: Record<string, Priority> = {
+  CRITICA: 'IMPORTANTE',
+  ALTA: 'IMPORTANTE',
+  BAJA: 'NO_TAN_IMPORTANTE',
+  NORMAL: 'NO_TAN_IMPORTANTE',
+  IMPORTANTE: 'IMPORTANTE',
+  NO_TAN_IMPORTANTE: 'NO_TAN_IMPORTANTE',
+};
+
+/** Old task documents were stored before audit/status fields existed. Normalize
+ * them in memory so an operational update can persist a complete safe record. */
+const migrateTaskStatus = (task: Task): Task => {
+  const legacy = task as Partial<Task> & { priority?: string; status?: string };
+  const fallbackDate = legacy.updatedAt || legacy.createdAt || new Date(0).toISOString();
+  return {
+    ...task,
+    id: legacy.id || `legacy-${fallbackDate}`,
+    title: legacy.title || 'Tarea sin título',
+    priority: LEGACY_PRIORITY[legacy.priority || ''] || 'NO_TAN_IMPORTANTE',
+    status: (legacy.status as string) === 'EN_CURSO'
+      ? 'EN_PROCESO'
+      : ['PENDIENTE', 'EN_PROCESO', 'BLOQUEADA', 'RESUELTA'].includes(legacy.status || '')
+        ? legacy.status as TaskStatus
+        : 'PENDIENTE',
+    dueDate: legacy.dueDate || '',
+    assignee: legacy.assignee || '',
+    createdBy: legacy.createdBy || 'Sin registro',
+    createdAt: legacy.createdAt || fallbackDate,
+    updatedAt: legacy.updatedAt || fallbackDate,
+    auditLog: Array.isArray(legacy.auditLog) ? legacy.auditLog : [],
+  };
+};
 
 const migrateTaskStatuses = (items: Task[]): Task[] => items.map(migrateTaskStatus);
+
+const mergeUsers = (profiles: UserProfile[]) => {
+  const byId = new Map(INITIAL_USERS.map(user => [user.id, user]));
+  profiles.forEach(profile => byId.set(profile.id, { ...byId.get(profile.id), ...profile }));
+  return [...byId.values()];
+};
 
 interface TaskContextType {
   tasks: Task[];
@@ -175,11 +210,7 @@ await signOutFirebase();
           return;
         }
 
-        setUsers(
-          INITIAL_USERS.map(base =>
-            base.id === profile.id ? { ...base, ...profile } : base
-          )
-        );
+        setUsers(mergeUsers([profile]));
         setCurrentUserIdState(profile.id);
         setIsLoggedIn(true);
                 console.info('[LOGIN_TRACE] LOGIN_SUCCESS', {
@@ -189,6 +220,12 @@ await signOutFirebase();
           activeView: 'inicio',
         });
 setActiveView('inicio');
+
+        if (canAssignOrDeriveTasks(profile)) {
+          void getActiveUserProfiles()
+            .then(profiles => setUsers(mergeUsers(profiles)))
+            .catch(error => console.warn('No se pudo cargar el listado de integrantes activos:', error));
+        }
       } catch (error) {
         console.warn('No se pudo cargar el perfil Firebase:', error);
         await signOutFirebase();
@@ -299,11 +336,7 @@ setActiveView('inicio');
 
       return;
     }
-    setUsers(
-      INITIAL_USERS.map(base =>
-        base.id === profile.id ? { ...base, ...profile } : base
-      )
-    );
+    setUsers(mergeUsers([profile]));
     setCurrentUserIdState(profile.id);
     setIsLoggedIn(true);
     setActiveView('inicio');
@@ -865,7 +898,7 @@ setActiveView('inicio');
 
     const note = (notes[userId] || []).find(item => item.id === noteId);
     const text = updates.text.trim();
-    const color = updates.color === 'blue' || updates.color === 'slate' ? updates.color : 'yellow';
+    const color = updates.color === 'red' ? 'red' : 'yellow';
     const canManageNote = isLeadershipUser(currentUser) || (!!note?.authorUid && note.authorUid === firebaseUser.uid);
     if (!note || !canManageNote) {
       alert('Solo quien creó esta anotación o la dirección puede editarla.');

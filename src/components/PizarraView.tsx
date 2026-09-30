@@ -60,7 +60,7 @@ export const PizarraView: React.FC = () => {
     userId: string;
     noteId: string;
     text: string;
-    color: 'yellow' | 'blue' | 'slate';
+    color: 'yellow' | 'red';
   } | null>(null);
   const [sharedWhiteboardTaskTitle, setSharedWhiteboardTaskTitle] = useState('');
   const [processingTaskIds, setProcessingTaskIds] = useState<Record<string, boolean>>({});
@@ -166,14 +166,11 @@ export const PizarraView: React.FC = () => {
     const text = quickNoteInputs[userId]?.trim();
     if (!text) return;
 
-    const colors: ('yellow' | 'blue' | 'slate')[] = ['yellow', 'blue', 'slate'];
-    const randomColor = colors[Math.floor(Math.random() * colors.length)];
-
     const newNote: PersonNote = {
       id: `note-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       text,
       createdAt: new Date().toISOString(),
-      color: randomColor,
+      color: 'yellow',
     };
 
     addNote(userId, newNote);
@@ -190,7 +187,7 @@ export const PizarraView: React.FC = () => {
       userId,
       noteId: note.id,
       text: note.text,
-      color: note.color === 'blue' || note.color === 'slate' ? note.color : 'yellow',
+      color: note.color === 'red' ? 'red' : 'yellow',
     });
   };
 
@@ -210,7 +207,7 @@ export const PizarraView: React.FC = () => {
 
     addTask({
       title,
-      priority: 'NORMAL',
+      priority: 'NO_TAN_IMPORTANTE',
       status: 'PENDIENTE',
       dueDate: todayStr,
       dueTime: '18:00',
@@ -330,7 +327,7 @@ export const PizarraView: React.FC = () => {
                 <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
                   Tareas Disponibles
                 </h3>
-                <span className="px-3 py-0.5 rounded-full text-xs font-black bg-emerald-500 text-slate-950 shadow-xs uppercase tracking-wider">
+                <span className="px-3 py-0.5 rounded-full text-xs font-black bg-emerald-500 text-white shadow-xs uppercase tracking-wider">
                   {matchingAvailableTasks.length} {matchingAvailableTasks.length === 1 ? 'disponible' : 'disponibles'}
                 </span>
               </div>
@@ -361,7 +358,7 @@ export const PizarraView: React.FC = () => {
             type="submit"
             id="btn-submit-shared-task"
             title="Publicar tarea disponible en la pizarra"
-            className="min-h-10 w-full rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 shadow-sm transition-colors hover:bg-emerald-400 active:scale-[0.98] sm:w-auto cursor-pointer shrink-0"
+            className="min-h-10 w-full rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-white shadow-sm transition-colors hover:bg-emerald-400 active:scale-[0.98] sm:w-auto cursor-pointer shrink-0"
           >
             Crear tarea rápida
           </button>
@@ -425,7 +422,7 @@ export const PizarraView: React.FC = () => {
           });
 
           const blockedCount = activeTasks.filter(t => t.status === 'BLOQUEADA').length;
-          const criticalCount = activeTasks.filter(t => t.priority === 'CRITICA').length;
+          const importantCount = activeTasks.filter(t => t.priority === 'IMPORTANTE').length;
 
           const userNotes = (notes[user.id] || []).filter(n => {
             if (!searchTerm) return true;
@@ -468,7 +465,7 @@ export const PizarraView: React.FC = () => {
                     </div>
 
                     {/* Urgent / Blocked indicators if any */}
-                    {(blockedCount > 0 || criticalCount > 0) && (
+                    {(blockedCount > 0 || importantCount > 0) && (
                       <div className="flex items-center gap-2 mt-3 flex-wrap">
                         {blockedCount > 0 && (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200/80 shadow-2xs">
@@ -476,10 +473,10 @@ export const PizarraView: React.FC = () => {
                             <span>{blockedCount} {blockedCount === 1 ? 'bloqueo' : 'bloqueos'}</span>
                           </span>
                         )}
-                        {criticalCount > 0 && (
+                        {importantCount > 0 && (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200/80 shadow-2xs">
                             <AlertTriangle className="w-3.5 h-3.5 stroke-[2.4]" />
-                            <span>{criticalCount} {criticalCount === 1 ? 'crítica' : 'críticas'}</span>
+                            <span>{importantCount} {importantCount === 1 ? 'importante' : 'importantes'}</span>
                           </span>
                         )}
                       </div>
@@ -582,15 +579,15 @@ export const PizarraView: React.FC = () => {
                   {userNotes.length > 0 ? (
                     userNotes.map(note => {
                       const isYellow = note.color === 'yellow' || !note.color;
-                      const isBlue = note.color === 'blue';
+                      const isImportant = note.color === 'red';
                       const canEditNote = isLeadershipUser(currentUser) || (!!note.authorUid && note.authorUid === currentUser.uid);
                       const isEditing = editingNote?.noteId === note.id && editingNote.userId === user.id;
 
-                      const noteStyle = isYellow
+                      const noteStyle = isImportant
+                        ? 'bg-rose-50 border-rose-200 text-rose-950 shadow-2xs'
+                        : isYellow
                         ? 'bg-[#fefce8] border-amber-200 text-amber-950 shadow-2xs'
-                        : isBlue
-                        ? 'bg-sky-50 border-sky-200 text-sky-950 shadow-2xs'
-                        : 'bg-white border-slate-200 text-slate-800 shadow-2xs';
+                        : 'bg-[#fefce8] border-amber-200 text-amber-950 shadow-2xs';
 
                       return (
                         <div
@@ -610,18 +607,17 @@ export const PizarraView: React.FC = () => {
                                     className="w-full resize-y rounded-lg border border-amber-300 bg-white/80 px-2.5 py-2 text-xs sm:text-sm leading-relaxed text-slate-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-amber-300"
                                   />
                                   <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <div className="flex items-center gap-1.5" aria-label="Color de fondo">
+                                    <div className="flex items-center gap-1.5" aria-label="Prioridad de la anotación">
                                       {([
-                                        ['yellow', 'Amarillo', 'bg-amber-200 border-amber-400'],
-                                        ['blue', 'Celeste', 'bg-sky-200 border-sky-400'],
-                                        ['slate', 'Blanco', 'bg-white border-slate-400'],
+                                        ['red', 'Rojo: importante', 'bg-rose-200 border-rose-400'],
+                                        ['yellow', 'Amarillo: no tan importante', 'bg-amber-200 border-amber-400'],
                                       ] as const).map(([color, label, swatchClass]) => (
                                         <button
                                           key={color}
                                           type="button"
-                                          aria-label={`Fondo ${label}`}
+                                          aria-label={label}
                                           aria-pressed={editingNote.color === color}
-                                          title={`Fondo ${label}`}
+                                          title={label}
                                           onClick={() => setEditingNote(current => current ? { ...current, color } : current)}
                                           className={`h-7 w-7 rounded-full border-2 transition-transform focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1 ${swatchClass} ${editingNote.color === color ? 'scale-110 ring-2 ring-slate-700 ring-offset-1' : 'hover:scale-105'}`}
                                         />
@@ -643,7 +639,7 @@ export const PizarraView: React.FC = () => {
                                 </p>
                               )}
                               {note.createdAt && (
-                                <span className="text-[10px] font-medium text-slate-500 mt-2.5 block">
+                                <span className={`text-[10px] font-medium mt-2.5 block ${isImportant ? 'text-rose-800' : 'text-amber-800'}`}>
                                   {note.authorName ? (
                                     <>Creada por: {note.authorName} · {formatNoteTime(note.createdAt)}</>
                                   ) : (
@@ -681,7 +677,7 @@ export const PizarraView: React.FC = () => {
                                     type="button"
                                     onClick={() => handleDeleteNote(user.id, note.id)}
                                     title="Eliminar nota"
-                                    className="p-1.5 rounded-lg text-slate-400 opacity-100 transition-all hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus:ring-2 focus:ring-rose-200 sm:opacity-0 sm:group-hover/note:opacity-100"
+                                    className="p-1.5 rounded-lg text-rose-700 opacity-100 transition-all hover:bg-rose-50 hover:text-rose-800 focus:outline-none focus:ring-2 focus:ring-rose-200 sm:opacity-0 sm:group-hover/note:opacity-100"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>

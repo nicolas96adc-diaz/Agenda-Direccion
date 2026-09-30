@@ -13,6 +13,13 @@ service cloud.firestore {
     function admin() { return active() && appUserId() == 'user-rodrigo'; }
     function operations() { return active() && appUserId() in ['user-nicolas', 'user-noemi']; }
     function privileged() { return admin() || operations(); }
+    // Assignment authority is configured through the active user profile.
+    // It is intentionally narrower than privileged(), which protects the
+    // existing leadership-only operations such as deleting documents.
+    function canAssignOrDerive() {
+      return active() && has(profile(), 'accessLevel') &&
+        profile().accessLevel in ['Administración total', 'Dirección'];
+    }
 
     function has(data, key) { return data.keys().hasAll([key]); }
     // Matches the legacy values the client already presents as "Disponible".
@@ -24,8 +31,25 @@ service cloud.firestore {
     }
     function validStatus(data) { return has(data, 'status') && data.status in ['PENDIENTE', 'EN_PROCESO', 'BLOQUEADA', 'RESUELTA']; }
     function actor(data) { return has(data, 'lastModifiedByUid') && data.lastModifiedByUid == request.auth.uid && has(data, 'updatedAt'); }
-    function owns(data) { return has(data, 'assigneeUid') && data.assigneeUid == request.auth.uid; }
-    function immutableTask() { return request.resource.data.id == resource.data.id && request.resource.data.createdAt == resource.data.createdAt; }
+    // Older tasks predate assigneeUid. Their immutable assignee name/id is
+    // matched to the signed-in profile only until the task is saved again.
+    function legacyOwns(data) {
+      return !has(data, 'assigneeUid') &&
+        ((has(data, 'assigneeId') && data.assigneeId == appUserId()) ||
+         (has(data, 'assignee') && (data.assignee == profile().name ||
+           (has(profile(), 'shortName') && data.assignee == profile().shortName))));
+    }
+    function owns(data) {
+      return (has(data, 'assigneeUid') && data.assigneeUid == request.auth.uid) || legacyOwns(data);
+    }
+    // Do not reject a legacy task merely because id/createdAt did not exist
+    // when it was created. Once those values exist they remain immutable.
+    function immutableTask() {
+      return (!has(resource.data, 'id') ||
+        (has(request.resource.data, 'id') && request.resource.data.id == resource.data.id)) &&
+        (!has(resource.data, 'createdAt') ||
+          (has(request.resource.data, 'createdAt') && request.resource.data.createdAt == resource.data.createdAt));
+    }
     function groupMeeting(data) { return has(data, 'kind') && data.kind == 'REUNION_GRUPO'; }
     function validGroupMeeting(data) {
       return groupMeeting(data) &&
@@ -48,6 +72,9 @@ service cloud.firestore {
 
     function keepsAssignment() {
       return (has(resource.data, 'assigneeUid') && has(request.resource.data, 'assigneeUid') && request.resource.data.assigneeUid == resource.data.assigneeUid) ||
+             (!has(resource.data, 'assigneeUid') && !has(request.resource.data, 'assigneeUid') &&
+               (!has(resource.data, 'assignee') ||
+                 (has(request.resource.data, 'assignee') && request.resource.data.assignee == resource.data.assignee))) ||
              (unassigned(resource.data) && unassigned(request.resource.data));
     }
     function claim() {
@@ -69,13 +96,13 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(data.assigneeUid)).data.name == data.assignee;
     }
     function reassign() {
-      return privileged() && activeAssignee(request.resource.data) &&
+      return canAssignOrDerive() && activeAssignee(request.resource.data) &&
         (!has(resource.data, 'assigneeUid') || resource.data.assigneeUid != request.resource.data.assigneeUid);
     }
 
     match /users/{uid} {
       allow get: if signedIn() && (uid == request.auth.uid || (active() && privileged()));
-      allow list: if active() && privileged();
+      allow list: if active() && canAssignOrDerive();
       allow create, update, delete: if admin();
     }
 
@@ -93,7 +120,7 @@ service cloud.firestore {
         actor(request.resource.data) &&
         (
           (groupMeeting(resource.data) && groupMeeting(request.resource.data) && (privileged() || owns(resource.data)) && keepsMeetingOrganizer()) ||
-          (!groupMeeting(resource.data) && (((privileged() || owns(resource.data)) && (keepsAssignment() || release() || reassign())) || claim()))
+          (!groupMeeting(resource.data) && (((privileged() || owns(resource.data)) && (keepsAssignment() || release())) || reassign() || claim()))
         );
       allow delete: if privileged();
     }

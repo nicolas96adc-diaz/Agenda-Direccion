@@ -17,7 +17,7 @@ export interface FirestoreNoteDoc {
   userId: string;
   text: string;
   createdAt: string;
-  color?: 'yellow' | 'blue' | 'slate';
+  color?: 'yellow' | 'red';
   authorName?: string;
   authorUid?: string;
   isCompleted?: boolean;
@@ -30,7 +30,7 @@ export interface FirestoreReleaseAcknowledgement {
 }
 export interface FirestoreUserProfile { uid: string; email: string; appUserId: string; name: string; role: string; active: boolean; shortName?: string; accessLevel?: UserProfile['accessLevel']; }
 
-function parseNoteColor(color?: string): 'yellow' | 'blue' | 'slate' { return color === 'blue' || color === 'slate' ? color : 'yellow'; }
+function parseNoteColor(color?: string): 'yellow' | 'red' { return color === 'red' ? 'red' : 'yellow'; }
 function stripUndefined<T>(value: T): T {
   if (Array.isArray(value)) return value.map(item => stripUndefined(item)) as T;
   if (value && typeof value === 'object') {
@@ -97,6 +97,27 @@ export async function getUserProfileByUid(uid: string): Promise<UserProfile | nu
   };
   console.info('[LOGIN_TRACE] PROFILE_RESULT', { pathRead: primaryPath, profile });
   return profile;
+}
+
+/** Only leadership accounts may read this collection; callers keep the current
+ * profile-only behavior when that permission is not available. */
+export async function getActiveUserProfiles(): Promise<UserProfile[]> {
+  const snapshot = await getDocs(collection(db, USERS_COLLECTION));
+  return snapshot.docs.flatMap(item => {
+    const data = item.data() as Partial<FirestoreUserProfile>;
+    if (!data.uid || !data.appUserId || !data.name || !data.role || data.active !== true) return [];
+    return [{
+      id: data.appUserId,
+      appUserId: data.appUserId,
+      uid: data.uid,
+      email: data.email,
+      name: data.name,
+      shortName: data.shortName || data.name.split(' ')[0],
+      role: data.role,
+      accessLevel: data.accessLevel || 'Coordinación',
+      active: true,
+    }];
+  });
 }
 
 function releaseAcknowledgementId(uid: string, version: string) {

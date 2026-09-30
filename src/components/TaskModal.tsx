@@ -35,7 +35,7 @@ export const TaskModal: React.FC = () => {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState<Priority>('NORMAL');
+  const [priority, setPriority] = useState<Priority>('NO_TAN_IMPORTANTE');
   const [status, setStatus] = useState<TaskStatus>('PENDIENTE');
   const [dueDate, setDueDate] = useState(getTodayDateString());
   const [dueTime, setDueTime] = useState('12:00');
@@ -77,7 +77,7 @@ export const TaskModal: React.FC = () => {
 
     setTitle('');
     setDescription('');
-    setPriority('NORMAL');
+    setPriority('NO_TAN_IMPORTANTE');
     setStatus(defaultModalStatus);
     setDueDate(getTodayDateString());
     setDueTime('12:00');
@@ -271,10 +271,8 @@ export const TaskModal: React.FC = () => {
                 onChange={event => setPriority(event.target.value as Priority)}
                 className="w-full px-3 py-2 border rounded-xl text-xs sm:text-sm font-semibold bg-slate-50/70 border-slate-200/90 disabled:bg-slate-100 disabled:cursor-not-allowed"
               >
-                <option value="BAJA">Baja</option>
-                <option value="NORMAL">Normal</option>
-                <option value="ALTA">Alta</option>
-                <option value="CRITICA">Crítica</option>
+                <option value="IMPORTANTE">Rojo — Importante</option>
+                <option value="NO_TAN_IMPORTANTE">Amarillo — No tan importante</option>
               </select>
             </div>
 
@@ -426,7 +424,7 @@ export const TaskModal: React.FC = () => {
                     id="btn-modal-release-task"
                     type="button"
                     onClick={() => releaseTask(editingTask.id)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:text-amber-800 hover:bg-amber-50 rounded-xl border border-slate-200/80 cursor-pointer"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-50 rounded-xl border border-slate-200/80 cursor-pointer"
                   >
                     <Undo2 className="w-3.5 h-3.5 text-amber-600" />
                     Liberar
@@ -464,7 +462,7 @@ export const TaskModal: React.FC = () => {
                   id="btn-modal-quick-resolve"
                   type="button"
                   onClick={handleQuickResolve}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border bg-white text-slate-700 border-slate-200 hover:bg-emerald-50 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border bg-white text-emerald-800 border-slate-200 hover:bg-emerald-50 cursor-pointer"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   {status === 'RESUELTA' ? 'Reabrir' : 'Marcar Resuelta'}
@@ -475,7 +473,7 @@ export const TaskModal: React.FC = () => {
                   id="btn-modal-quick-block"
                   type="button"
                   onClick={handleQuickBlock}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border bg-white text-slate-700 border-slate-200 hover:bg-rose-50 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border bg-white text-rose-800 border-slate-200 hover:bg-rose-50 cursor-pointer"
                 >
                   <Ban className="w-3.5 h-3.5" />
                   {status === 'BLOQUEADA' ? 'Desbloquear' : 'Informar Bloqueo'}

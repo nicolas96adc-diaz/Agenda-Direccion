@@ -1,4 +1,5 @@
-export type Priority = 'BAJA' | 'NORMAL' | 'ALTA' | 'CRITICA';
+/** The only two operational priority levels shown in the product. */
+export type Priority = 'IMPORTANTE' | 'NO_TAN_IMPORTANTE';
 
 export type TaskStatus = 'PENDIENTE' | 'EN_PROCESO' | 'BLOQUEADA' | 'RESUELTA';
 
@@ -79,7 +80,7 @@ export interface PersonNote {
   id: string;
   text: string;
   createdAt: string;
-  color?: 'yellow' | 'blue' | 'slate';
+  color?: 'yellow' | 'red';
   /** Stored by the signed-in session when the note is created. */
   authorName?: string;
   authorUid?: string;
