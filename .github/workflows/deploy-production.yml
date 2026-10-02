@@ -116,6 +116,9 @@ jobs:
           test -n "$version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+      - name: Publish Firestore rules only
+        run: npx -y firebase-tools@latest deploy --only firestore:rules --project "$FIREBASE_PROJECT_ID" --non-interactive
+
       - name: Deploy main to the existing Docker Compose service
         env:
           EXPECTED_COMMIT: ${{ steps.release.outputs.commit }}
@@ -150,9 +153,6 @@ jobs:
           docker compose ps
           echo "DEPLOYED_COMMIT=$deployed_commit"
           REMOTE
-
-      - name: Publish Firestore rules only
-        run: npx -y firebase-tools@latest deploy --only firestore:rules --project "$FIREBASE_PROJECT_ID" --non-interactive
 
       - name: Verify public production
         env:
