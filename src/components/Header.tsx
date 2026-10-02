@@ -94,7 +94,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
                     }`}
                   />
                   <span className={`text-[10px] font-semibold ${syncStatus === 'error' ? 'text-rose-700' : syncStatus === 'offline' ? 'text-slate-600' : 'text-slate-500'}`}>
-                    {syncStatus === 'error' ? 'Revisar sincronización' : isLoadingData || syncStatus === 'syncing' ? syncMessage : ''}
+                    {syncStatus === 'error' ? syncError || 'Revisar sincronización' : isLoadingData || syncStatus === 'syncing' ? syncMessage : ''}
                   </span>
                 </span>
               </div>

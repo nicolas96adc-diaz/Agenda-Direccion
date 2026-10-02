@@ -26,8 +26,9 @@ service cloud.firestore {
     // Keeping this normalization in the rules prevents a task from looking
     // claimable in the UI while Firestore rejects the assignment.
     function unassigned(data) {
-      return !has(data, 'assigneeUid') &&
-        (!has(data, 'assignee') || data.assignee in ['', 'Disponible', 'disponible', 'Sin asignar', 'sin asignar', 'Sin responsable', 'sin responsable']);
+      return (!has(data, 'assigneeUid') || data.assigneeUid == null || data.assigneeUid == '') &&
+        (!has(data, 'assigneeId') || data.assigneeId == null || data.assigneeId == '') &&
+        (!has(data, 'assignee') || data.assignee == null || data.assignee in ['', 'Disponible', 'disponible', 'Sin asignar', 'sin asignar', 'Sin responsable', 'sin responsable']);
     }
     function validStatus(data) { return has(data, 'status') && data.status in ['PENDIENTE', 'EN_PROCESO', 'BLOQUEADA', 'RESUELTA']; }
     function validPriority(data) { return has(data, 'priority') && data.priority in ['NORMAL', 'CRITICA']; }

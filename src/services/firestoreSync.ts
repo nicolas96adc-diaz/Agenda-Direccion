@@ -30,6 +30,32 @@ export interface FirestoreReleaseAcknowledgement {
 }
 export interface FirestoreUserProfile { uid: string; email: string; appUserId: string; name: string; role: string; active: boolean; shortName?: string; accessLevel?: UserProfile['accessLevel']; }
 
+function toUserProfile(documentId: string, data: Partial<FirestoreUserProfile>): UserProfile | null {
+  if (
+    !data.uid ||
+    data.uid !== documentId ||
+    !data.email ||
+    !data.appUserId ||
+    !data.name ||
+    !data.role ||
+    typeof data.active !== 'boolean'
+  ) {
+    return null;
+  }
+
+  return {
+    id: data.appUserId,
+    appUserId: data.appUserId,
+    uid: data.uid,
+    email: data.email,
+    name: data.name,
+    shortName: data.shortName || data.name.split(' ')[0],
+    role: data.role,
+    accessLevel: data.accessLevel || 'Coordinación',
+    active: data.active,
+  };
+}
+
 function parseNoteColor(color?: string): 'yellow' | 'red' { return color === 'red' ? 'red' : 'yellow'; }
 function stripUndefined<T>(value: T): T {
   if (Array.isArray(value)) return value.map(item => stripUndefined(item)) as T;
@@ -44,7 +70,7 @@ function stripUndefined<T>(value: T): T {
 /** Temporary diagnostic trace. Reads keep their existing behavior. */
 export async function getUserProfileByUid(uid: string): Promise<UserProfile | null> {
   const primaryPath = `/users/${uid}`;
-  
+
   console.info('[LOGIN_TRACE] PROFILE_READ_START', { primaryPath });
 
   const primarySnapshot = await getDoc(doc(db, USERS_COLLECTION, uid));
@@ -59,43 +85,19 @@ export async function getUserProfileByUid(uid: string): Promise<UserProfile | nu
   }
 
   const data = snapshot.data() as Partial<FirestoreUserProfile>;
-  const hasUid = Boolean(data.uid);
-  const uidMatches = data.uid === uid;
-  const hasEmail = Boolean(data.email);
-  const hasAppUserId = Boolean(data.appUserId);
-  const hasName = Boolean(data.name);
-  const hasRole = Boolean(data.role);
-  const hasBooleanActive = typeof data.active === 'boolean';
+  const profile = toUserProfile(snapshot.id, data);
   console.info('[LOGIN_TRACE] PROFILE_DOCUMENT_AND_VALIDATIONS', {
     pathRead: primaryPath,
     documentExists: true,
-    profileData: data,
-    hasUid,
-    uidMatches,
-    hasEmail,
-    hasAppUserId,
-    hasName,
-    hasRole,
-    hasBooleanActive,
+    profileIsValid: Boolean(profile),
   });
 
-  if (!hasUid || !uidMatches || !hasEmail || !hasAppUserId || !hasName || !hasRole || !hasBooleanActive) {
-    console.error('[LOGIN_TRACE] LOGIN_FAIL_REASON: firestore_profile_shape_validation', { hasUid, uidMatches, hasEmail, hasAppUserId, hasName, hasRole, hasBooleanActive });
+  if (!profile) {
+    console.error('[LOGIN_TRACE] LOGIN_FAIL_REASON: firestore_profile_shape_validation', { pathRead: primaryPath });
     return null;
   }
 
-  const profile: UserProfile = {
-    id: data.appUserId!,
-    appUserId: data.appUserId!,
-    uid: data.uid!,
-    email: data.email!,
-    name: data.name!,
-    shortName: data.shortName || data.name!.split(' ')[0],
-    role: data.role!,
-    accessLevel: data.accessLevel || 'Coordinación',
-    active: data.active!,
-  };
-  console.info('[LOGIN_TRACE] PROFILE_RESULT', { pathRead: primaryPath, profile });
+  console.info('[LOGIN_TRACE] PROFILE_RESULT', { pathRead: primaryPath, profileId: profile.id, profileUid: profile.uid });
   return profile;
 }
 
@@ -103,21 +105,9 @@ export async function getUserProfileByUid(uid: string): Promise<UserProfile | nu
  * profile-only behavior when that permission is not available. */
 export async function getActiveUserProfiles(): Promise<UserProfile[]> {
   const snapshot = await getDocs(collection(db, USERS_COLLECTION));
-  return snapshot.docs.flatMap(item => {
-    const data = item.data() as Partial<FirestoreUserProfile>;
-    if (!data.uid || !data.appUserId || !data.name || !data.role || data.active !== true) return [];
-    return [{
-      id: data.appUserId,
-      appUserId: data.appUserId,
-      uid: data.uid,
-      email: data.email,
-      name: data.name,
-      shortName: data.shortName || data.name.split(' ')[0],
-      role: data.role,
-      accessLevel: data.accessLevel || 'Coordinación',
-      active: true,
-    }];
-  });
+  return snapshot.docs
+    .map(item => toUserProfile(item.id, item.data() as Partial<FirestoreUserProfile>))
+    .filter((profile): profile is UserProfile => profile !== null && profile.active);
 }
 
 function releaseAcknowledgementId(uid: string, version: string) {
@@ -186,7 +176,19 @@ export function subscribeMeetingAttendance(onUpdate: (attendance: Record<string,
   } catch (error) { console.warn('Could not initialize meeting attendance listener:', error); return () => {}; }
 }
 
-export async function saveTaskToFirestore(task: Task): Promise<boolean> { try { const cleanTask = stripUndefined(task); await setDoc(doc(db, TASKS_COLLECTION, task.id), cleanTask as any); return true; } catch (error) { console.error('Error saving task to Firestore:', error); return false; } }
+export async function saveTaskToFirestore(task: Task): Promise<void> {
+  try {
+    const cleanTask = stripUndefined(task);
+    await setDoc(doc(db, TASKS_COLLECTION, task.id), cleanTask as any);
+  } catch (error) {
+    console.error('[Firestore][tasks] Escritura rechazada', {
+      taskId: task.id,
+      code: (error as { code?: unknown })?.code,
+      error,
+    });
+    throw error;
+  }
+}
 export async function deleteTaskFromFirestore(taskId: string): Promise<boolean> { try { await deleteDoc(doc(db, TASKS_COLLECTION, taskId)); return true; } catch (error) { console.error('Error deleting task from Firestore:', error); return false; } }
 export async function addNoteToFirestore(userId: string, note: PersonNote): Promise<boolean> { try { const payload: FirestoreNoteDoc = { id: note.id, userId, text: note.text, createdAt: note.createdAt || new Date().toISOString(), color: parseNoteColor(note.color), authorName: note.authorName, authorUid: note.authorUid, isCompleted: note.isCompleted === true }; await setDoc(doc(db, NOTES_COLLECTION, note.id), stripUndefined(payload) as FirestoreNoteDoc); return true; } catch (error) { console.error('Error adding note to Firestore:', error); return false; } }
 export async function setNoteCompletedInFirestore(noteId: string, isCompleted: boolean): Promise<boolean> { try { await updateDoc(doc(db, NOTES_COLLECTION, noteId), { isCompleted }); return true; } catch (error) { console.error('Error updating note in Firestore:', error); return false; } }

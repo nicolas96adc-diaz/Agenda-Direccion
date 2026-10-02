@@ -67,6 +67,13 @@ const mergeUsers = (profiles: UserProfile[]) => {
   return [...byId.values()];
 };
 
+const firestoreErrorMessage = (error: unknown, fallback: string) => {
+  const firestoreError = error as { code?: unknown; message?: unknown };
+  const code = typeof firestoreError?.code === 'string' ? firestoreError.code : 'unknown';
+  const detail = typeof firestoreError?.message === 'string' ? firestoreError.message : 'Sin detalle adicional';
+  return `${fallback} [${code}]: ${detail}`;
+};
+
 interface TaskContextType {
   tasks: Task[];
   users: UserProfile[];
@@ -393,24 +400,25 @@ setActiveView('inicio');
    * its own because it can deliver its previous snapshot before the write
    * failure is reported.
    */
-  const persistTask = (
+  const persistTask = async (
     task: Task,
     errorMessage: string,
     rollback?: () => void
-  ) => {
+  ): Promise<boolean> => {
     setSyncStatus('syncing');
     setSyncError(null);
-    void saveTaskToFirestore(task)
-      .then(success => {
-        if (!success) throw new Error(errorMessage);
-        setSyncStatus('synced');
-      })
-      .catch(error => {
-        console.warn(errorMessage, error);
-        rollback?.();
-        setSyncStatus('error');
-        setSyncError(errorMessage);
-      });
+    try {
+      await saveTaskToFirestore(task);
+      setSyncStatus('synced');
+      return true;
+    } catch (error) {
+      const visibleError = firestoreErrorMessage(error, errorMessage);
+      console.error(visibleError, { taskId: task.id, error });
+      rollback?.();
+      setSyncStatus('error');
+      setSyncError(visibleError);
+      return false;
+    }
   };
 
   const addTask = (
@@ -649,10 +657,10 @@ setActiveView('inicio');
       ],
     };
 
-    setTasks(previous => previous.map(task => (task.id === id ? nextTask : task)));
-    persistTask(nextTask, 'Error al derivar la tarea en Firestore.', () => {
-      setTasks(previous => previous.map(task => (task.id === id ? targetTask : task)));
-    });
+    void persistTask(nextTask, 'Error al derivar la tarea en Firestore.')
+      .then(saved => {
+        if (saved) setTasks(previous => previous.map(task => (task.id === id ? nextTask : task)));
+      });
   };
 
   const claimTask = (id: string, _userToClaim?: UserProfile) => {
@@ -688,10 +696,10 @@ setActiveView('inicio');
       ],
     };
 
-    setTasks(previous => previous.map(task => (task.id === id ? nextTask : task)));
-    persistTask(nextTask, 'Error al tomar la tarea en Firestore.', () => {
-      setTasks(previous => previous.map(task => (task.id === id ? targetTask : task)));
-    });
+    void persistTask(nextTask, 'Error al tomar la tarea en Firestore.')
+      .then(saved => {
+        if (saved) setTasks(previous => previous.map(task => (task.id === id ? nextTask : task)));
+      });
   };
 
   const releaseTask = (id: string) => {
