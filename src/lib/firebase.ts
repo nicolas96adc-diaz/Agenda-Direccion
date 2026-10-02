@@ -22,10 +22,7 @@ export interface FirebaseRuntimeConfig {
 }
 
 export function resolveFirebaseConfig(): FirebaseRuntimeConfig {
-  const projectId =
-    (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID ||
-    baseAppletConfig.projectId ||
-    'clinica-chutro';
+  const projectId = 'clinica-chutro';
 
   return {
     projectId,
@@ -37,10 +34,7 @@ export function resolveFirebaseConfig(): FirebaseRuntimeConfig {
       (import.meta as any).env?.VITE_FIREBASE_API_KEY ||
       baseAppletConfig.apiKey ||
       '',
-    appId:
-      (import.meta as any).env?.VITE_FIREBASE_APP_ID ||
-      baseAppletConfig.appId ||
-      '',
+    appId: '1:654505421798:web:75522a7c05c0348aa30427',
     storageBucket:
       (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET ||
       baseAppletConfig.storageBucket ||
@@ -49,10 +43,9 @@ export function resolveFirebaseConfig(): FirebaseRuntimeConfig {
       (import.meta as any).env?.VITE_FIREBASE_MESSAGING_SENDER_ID ||
       baseAppletConfig.messagingSenderId ||
       '',
-    firestoreDatabaseId:
-      (import.meta as any).env?.VITE_FIRESTORE_DATABASE_ID ||
-      baseAppletConfig.firestoreDatabaseId ||
-      '(default)',
+    // Clínica Chutro only uses the default Firestore database. This must not
+    // be overridden by an environment variable left from another project.
+    firestoreDatabaseId: '(default)',
   };
 }
 

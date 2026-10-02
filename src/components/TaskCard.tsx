@@ -13,6 +13,7 @@ import { Task } from '../types';
 import { useTasks } from '../context/TaskContext';
 import { formatResponsibleLabel, getTodayDateString } from '../utils/dateUtils';
 import { getTaskVisuals, CardVisualRole } from '../utils/taskUrgency';
+import { isTaskAvailable } from '../utils/assignment';
 
 interface TaskCardProps {
   task: Task;
@@ -32,11 +33,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const isHero = variant === 'hero';
   const isResolved = task.status === 'RESUELTA';
 
-  const isUnassigned =
-    !task.assignee ||
-    task.assignee.trim().toLowerCase() === 'disponible' ||
-    task.assignee.trim().toLowerCase() === 'sin asignar' ||
-    task.assignee.trim().toLowerCase() === 'sin responsable';
+  const isUnassigned = isTaskAvailable(task);
 
   // Real user permissions for active user on this card
   const perms = getUserPermissions(task);

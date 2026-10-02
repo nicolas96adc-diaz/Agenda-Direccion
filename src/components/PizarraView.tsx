@@ -23,6 +23,7 @@ import {
 import { useTasks } from '../context/TaskContext';
 import { Task, UserProfile, TaskStatus, PersonNote } from '../types';
 import { findUserByNameOrAlias } from '../data/users';
+import { isTaskAvailable } from '../utils/assignment';
 import { getTodayDateString, formatHumanDeadline, formatResponsibleLabel } from '../utils/dateUtils';
 import { calculateTaskUrgencyScore, getTaskVisuals } from '../utils/taskUrgency';
 import { isLeadershipUser } from '../utils/permissions';
@@ -115,8 +116,7 @@ export const PizarraView: React.FC = () => {
   const availableTasks = tasks.filter(t => {
     if (t.kind === 'REUNION_GRUPO') return false;
     if (t.status === 'RESUELTA') return false;
-    const a = (t.assignee || '').trim().toLowerCase();
-    return !a || a === 'disponible' || a === 'sin asignar' || a === 'sin responsable';
+    return isTaskAvailable(t);
   });
 
   const matchingAvailableTasks = availableTasks.filter(t => {
@@ -133,10 +133,8 @@ export const PizarraView: React.FC = () => {
   const getTasksForUser = (user: UserProfile) => {
     return tasks.filter(t => {
       if (t.kind === 'REUNION_GRUPO') return false;
-      const a = (t.assignee || '').trim().toLowerCase();
-      if (!a || a === 'disponible' || a === 'sin asignar' || a === 'sin responsable') {
-        return false;
-      }
+      if (isTaskAvailable(t)) return false;
+      if (t.assigneeUid) return !!user.uid && t.assigneeUid === user.uid;
       if (t.assigneeId && t.assigneeId === user.id) return true;
       const matched = findUserByNameOrAlias(t.assignee, users);
       if (matched && matched.id === user.id) return true;

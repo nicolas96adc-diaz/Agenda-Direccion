@@ -17,7 +17,8 @@ const VIEW_CONFIG: Record<ViewType, { title: string; subtitle: string }> = {
 };
 
 export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
-  const { activeView, openCreateModal, currentUser, logout, syncStatus, syncError, isLoadingData } = useTasks();
+  const { activeView, openCreateModal, currentUser, logout, syncStatus, syncError, lastWriteError, isLoadingData } = useTasks();
+  const operationalError = lastWriteError || syncError;
   const currentInfo = VIEW_CONFIG[activeView] || VIEW_CONFIG.inicio;
   const isHoy = currentInfo.title === 'HOY';
   const syncMessage = isLoadingData
@@ -25,7 +26,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
     : syncStatus === 'syncing'
     ? 'Guardando cambios…'
     : syncStatus === 'error'
-    ? syncError || 'No se pudieron sincronizar los cambios.'
+    ? operationalError || 'No se pudieron sincronizar los cambios.'
     : syncStatus === 'offline'
     ? 'Sin conexión'
     : 'Todo actualizado';
@@ -81,20 +82,20 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
                 <span className="text-[10px] text-slate-500 font-medium truncate">
                   {currentUser.role}
                 </span>
-                <span className="inline-flex items-center gap-1" title={syncMessage}>
+                <span className="inline-flex items-center gap-1" title={operationalError || syncMessage}>
                   <span
                     className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      syncStatus === 'syncing'
-                        ? 'bg-amber-500 animate-pulse'
-                        : syncStatus === 'error'
+                      operationalError || syncStatus === 'error'
                         ? 'bg-rose-500'
+                        : syncStatus === 'syncing'
+                        ? 'bg-amber-500 animate-pulse'
                         : syncStatus === 'offline'
                         ? 'bg-slate-400'
                         : 'bg-emerald-500'
                     }`}
                   />
-                  <span className={`text-[10px] font-semibold ${syncStatus === 'error' ? 'text-rose-700' : syncStatus === 'offline' ? 'text-slate-600' : 'text-slate-500'}`}>
-                    {syncStatus === 'error' ? syncError || 'Revisar sincronización' : isLoadingData || syncStatus === 'syncing' ? syncMessage : ''}
+                  <span className={`text-[10px] font-semibold ${operationalError || syncStatus === 'error' ? 'text-rose-700' : syncStatus === 'offline' ? 'text-slate-600' : 'text-slate-500'}`}>
+                    {operationalError || (syncStatus === 'error' ? syncError || 'Revisar sincronización' : isLoadingData || syncStatus === 'syncing' ? syncMessage : '')}
                   </span>
                 </span>
               </div>

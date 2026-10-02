@@ -1,10 +1,10 @@
-import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, getDocs, getDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, getDocs, getDoc, runTransaction } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import firebaseConfig from '../../firebase-applet-config.json';
 import { MeetingAttendance, Task, UserProfile, PersonNote, PersonNoteEditableFields } from '../types';
+import { isTaskAvailable, normalizedAccessLevel } from '../utils/assignment';
 
-export const FIREBASE_PROJECT_ID = firebaseConfig.projectId || 'clinica-chutro';
-export const FIRESTORE_DATABASE_ID = firebaseConfig.firestoreDatabaseId || '(default)';
+export const FIREBASE_PROJECT_ID = 'clinica-chutro';
+export const FIRESTORE_DATABASE_ID = '(default)';
 export const TASKS_COLLECTION = 'tasks';
 export const NOTES_COLLECTION = 'notes';
 export const MEMORIAS_COLLECTION = 'memorias';
@@ -51,7 +51,7 @@ function toUserProfile(documentId: string, data: Partial<FirestoreUserProfile>):
     name: data.name,
     shortName: data.shortName || data.name.split(' ')[0],
     role: data.role,
-    accessLevel: data.accessLevel || 'Coordinación',
+    accessLevel: normalizedAccessLevel(data.appUserId, data.accessLevel),
     active: data.active,
   };
 }
@@ -188,6 +188,99 @@ export async function saveTaskToFirestore(task: Task): Promise<void> {
     });
     throw error;
   }
+}
+
+function normalizedTaskStatus(status: unknown): Task['status'] {
+  if (status === 'EN_CURSO') return 'EN_PROCESO';
+  return ['PENDIENTE', 'EN_PROCESO', 'BLOQUEADA', 'RESUELTA'].includes(status as string)
+    ? status as Task['status']
+    : 'PENDIENTE';
+}
+
+function normalizedTaskPriority(priority: unknown): Task['priority'] {
+  return priority === 'CRITICA' || priority === 'ALTA' || priority === 'IMPORTANTE'
+    ? 'CRITICA'
+    : 'NORMAL';
+}
+
+function assignmentAudit(
+  remote: Task,
+  actor: UserProfile,
+  action: 'MODIFICADA' | 'DERIVADA',
+  details: string,
+  timestamp: string,
+) {
+  return [{
+    action,
+    byUserName: actor.name,
+    byUserId: actor.appUserId || actor.id,
+    timestamp,
+    details,
+  }, ...(Array.isArray(remote.auditLog) ? remote.auditLog : [])];
+}
+
+/** Reads the remote document in the transaction, so a stale UI cannot claim it. */
+export async function claimTaskInFirestore(
+  taskId: string,
+  actor: UserProfile,
+  actorUid: string,
+): Promise<Task> {
+  return runTransaction(db, async transaction => {
+    const reference = doc(db, TASKS_COLLECTION, taskId);
+    const snapshot = await transaction.get(reference);
+    if (!snapshot.exists()) throw new Error('La tarea ya no existe en Firestore.');
+    const remote = { ...(snapshot.data() as Task), id: snapshot.id };
+    if (!isTaskAvailable(remote)) throw new Error('La tarea ya fue tomada por otro integrante.');
+
+    const now = new Date().toISOString();
+    const patch = {
+      assigneeUid: actorUid,
+      assigneeId: actor.appUserId || actor.id,
+      assignee: actor.name,
+      status: normalizedTaskStatus(remote.status) === 'PENDIENTE' ? 'EN_PROCESO' : normalizedTaskStatus(remote.status),
+      priority: normalizedTaskPriority(remote.priority),
+      lastModifiedBy: actor.name,
+      lastModifiedById: actor.appUserId || actor.id,
+      lastModifiedByUid: actorUid,
+      updatedAt: now,
+      auditLog: assignmentAudit(remote, actor, 'MODIFICADA', `${actor.name} se hizo cargo de la tarea`, now),
+    };
+    transaction.update(reference, patch);
+    return { ...remote, ...patch } as Task;
+  });
+}
+
+/** Assignment changes are partial, atomic writes; unrelated task fields stay remote. */
+export async function reassignTaskInFirestore(
+  taskId: string,
+  actor: UserProfile,
+  actorUid: string,
+  assignee: UserProfile,
+): Promise<Task> {
+  if (!assignee.uid || !assignee.active) throw new Error('El destino debe ser un integrante activo con UID Firebase.');
+
+  return runTransaction(db, async transaction => {
+    const reference = doc(db, TASKS_COLLECTION, taskId);
+    const snapshot = await transaction.get(reference);
+    if (!snapshot.exists()) throw new Error('La tarea ya no existe en Firestore.');
+    const remote = { ...(snapshot.data() as Task), id: snapshot.id };
+    const now = new Date().toISOString();
+    const previousAssignee = remote.assignee || 'Sin responsable';
+    const patch = {
+      assigneeUid: assignee.uid,
+      assigneeId: assignee.appUserId || assignee.id,
+      assignee: assignee.name,
+      status: normalizedTaskStatus(remote.status),
+      priority: normalizedTaskPriority(remote.priority),
+      lastModifiedBy: actor.name,
+      lastModifiedById: actor.appUserId || actor.id,
+      lastModifiedByUid: actorUid,
+      updatedAt: now,
+      auditLog: assignmentAudit(remote, actor, 'DERIVADA', `Derivada de ${previousAssignee} a ${assignee.name}`, now),
+    };
+    transaction.update(reference, patch);
+    return { ...remote, ...patch } as Task;
+  });
 }
 export async function deleteTaskFromFirestore(taskId: string): Promise<boolean> { try { await deleteDoc(doc(db, TASKS_COLLECTION, taskId)); return true; } catch (error) { console.error('Error deleting task from Firestore:', error); return false; } }
 export async function addNoteToFirestore(userId: string, note: PersonNote): Promise<boolean> { try { const payload: FirestoreNoteDoc = { id: note.id, userId, text: note.text, createdAt: note.createdAt || new Date().toISOString(), color: parseNoteColor(note.color), authorName: note.authorName, authorUid: note.authorUid, isCompleted: note.isCompleted === true }; await setDoc(doc(db, NOTES_COLLECTION, note.id), stripUndefined(payload) as FirestoreNoteDoc); return true; } catch (error) { console.error('Error adding note to Firestore:', error); return false; } }

@@ -1,4 +1,5 @@
 import { UserProfile, Task } from '../types';
+import { hasDerivationPermission, isTaskAvailable as hasCanonicalAvailability } from './assignment';
 
 export interface TaskPermissions {
   canCreateTask: boolean;
@@ -18,9 +19,9 @@ export interface TaskPermissions {
 
 export function isTaskAssignedToUser(task: Task, user: UserProfile): boolean {
   if (task.assigneeUid && user.uid && task.assigneeUid === user.uid) return true;
-  if (task.assigneeId && task.assigneeId === user.id) return true;
-  const assignee = (task.assignee || '').trim().toLowerCase();
-  return assignee === user.name.toLowerCase() || assignee === user.shortName.toLowerCase();
+  // `assigneeId` is only a compatibility field for documents created before
+  // Firebase UID assignment. A visible name is never an authorization input.
+  return !task.assigneeUid && !!task.assigneeId && task.assigneeId === (user.appUserId || user.id);
 }
 
 export function isTaskCreatedByUser(task: Task, user: UserProfile): boolean {
@@ -29,8 +30,7 @@ export function isTaskCreatedByUser(task: Task, user: UserProfile): boolean {
 }
 
 export function isTaskAvailable(task?: Task | null): boolean {
-  const assignee = (task?.assignee || '').trim().toLowerCase();
-  return !assignee || assignee === 'disponible' || assignee === 'sin asignar' || assignee === 'sin responsable';
+  return hasCanonicalAvailability(task);
 }
 
 /** The three people who can administer work created by the whole team. */
@@ -44,7 +44,7 @@ export function isLeadershipUser(user: UserProfile): boolean {
  * deleting tasks or notes.
  */
 export function canAssignOrDeriveTasks(user: UserProfile): boolean {
-  return user.active && ['Administración total', 'Dirección'].includes(user.accessLevel);
+  return hasDerivationPermission(user);
 }
 
 export function getPermissions(user: UserProfile, task?: Task | null): TaskPermissions {

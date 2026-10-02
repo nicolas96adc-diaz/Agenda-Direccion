@@ -14,6 +14,7 @@ import {
 import { useTasks } from '../context/TaskContext';
 import { Priority, TaskKind, TaskStatus } from '../types';
 import { formatAuditDateTime, getTodayDateString } from '../utils/dateUtils';
+import { isTaskAvailable } from '../utils/assignment';
 
 export const TaskModal: React.FC = () => {
   const {
@@ -50,9 +51,7 @@ export const TaskModal: React.FC = () => {
   const permissions = getUserPermissions(editingTask);
   const isReadOnly = !!editingTask && !permissions.canEditTask;
   const assignee = editingTask?.assignee || '';
-  const isAvailable =
-    !assignee ||
-    ['disponible', 'sin asignar', 'sin responsable'].includes(assignee.trim().toLowerCase());
+  const isAvailable = isTaskAvailable(editingTask);
   const isGroupMeeting = (editingTask?.kind || kind) === 'REUNION_GRUPO';
   const activeAssignees = users.filter(user => user.active && user.uid);
 

@@ -3,6 +3,7 @@ import { Clock, CheckCircle2, RotateCcw, ChevronDown, Loader2 } from 'lucide-rea
 import { Task, TaskStatus } from '../types';
 import { TaskPermissions } from '../utils/permissions';
 import { formatHumanDeadline } from '../utils/dateUtils';
+import { isTaskAvailable } from '../utils/assignment';
 
 interface PizarraTaskCardProps {
   task: Task;
@@ -30,7 +31,7 @@ export const PizarraTaskCard: React.FC<PizarraTaskCardProps> = ({
     if (!isProcessing) setIsLocalProcessing(false);
   }, [isProcessing, task.status, task.assignee]);
 
-  const isUnassigned = !task.assignee || ['disponible', 'sin asignar', 'sin responsable'].includes(task.assignee.trim().toLowerCase());
+  const isUnassigned = isTaskAvailable(task);
   const isResolved = task.status === 'RESUELTA';
   const isInProgress = task.status === 'EN_PROCESO';
   const isBlocked = task.status === 'BLOQUEADA';

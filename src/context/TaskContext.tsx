@@ -21,6 +21,8 @@ import {
   fetchAllFromFirestore,
   getUserProfileByUid,
   getActiveUserProfiles,
+  claimTaskInFirestore,
+  reassignTaskInFirestore,
 } from '../services/firestoreSync';
 import { auth, onFirebaseAuthStateChanged, signOutFirebase } from '../lib/firebase';
 
@@ -87,6 +89,7 @@ interface TaskContextType {
 
   syncStatus: SyncStatus;
   syncError: string | null;
+  lastWriteError: string | null;
   isLoadingData: boolean;
 
   notes: Record<string, PersonNote[]>;
@@ -157,6 +160,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUserId, setCurrentUserIdState] = useState('');
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('offline');
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [lastWriteError, setLastWriteError] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(false);
 
   const [activeView, setActiveView] = useState<ViewType>('inicio');
@@ -187,6 +191,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUsers(INITIAL_USERS);
         setSyncStatus('offline');
         setSyncError(null);
+        setLastWriteError(null);
         setIsLoadingData(false);
         return;
       }
@@ -274,7 +279,6 @@ setActiveView('inicio');
         if (!mounted) return;
         setTasks(migrateTaskStatuses(remoteTasks || []));
         setSyncStatus('synced');
-        setSyncError(null);
         setIsLoadingData(false);
       },
       () => {
@@ -290,7 +294,6 @@ setActiveView('inicio');
         if (!mounted) return;
         setNotes(remoteNotes || {});
         setSyncStatus('synced');
-        setSyncError(null);
       },
       () => {
         if (!mounted) return;
@@ -304,7 +307,6 @@ setActiveView('inicio');
         if (!mounted) return;
         setMeetingAttendance(remoteAttendance || {});
         setSyncStatus('synced');
-        setSyncError(null);
       },
       () => {
         if (!mounted) return;
@@ -360,6 +362,7 @@ setActiveView('inicio');
     setCurrentUserIdState('');
     setSyncStatus('offline');
     setSyncError(null);
+    setLastWriteError(null);
     void signOutFirebase();
   };
 
@@ -406,17 +409,17 @@ setActiveView('inicio');
     rollback?: () => void
   ): Promise<boolean> => {
     setSyncStatus('syncing');
-    setSyncError(null);
     try {
       await saveTaskToFirestore(task);
       setSyncStatus('synced');
+      setLastWriteError(null);
       return true;
     } catch (error) {
       const visibleError = firestoreErrorMessage(error, errorMessage);
       console.error(visibleError, { taskId: task.id, error });
       rollback?.();
-      setSyncStatus('error');
-      setSyncError(visibleError);
+      setSyncStatus('synced');
+      setLastWriteError(visibleError);
       return false;
     }
   };
@@ -634,32 +637,19 @@ setActiveView('inicio');
       return;
     }
 
-    const now = new Date().toISOString();
-    const previousAssignee = targetTask.assignee || 'Sin responsable';
-    const nextTask: Task = {
-      ...targetTask,
-      assignee: nextAssignee.name,
-      assigneeId: nextAssignee.id,
-      assigneeUid: nextAssignee.uid,
-      lastModifiedBy: currentUser.name,
-      lastModifiedById: currentUser.id,
-      lastModifiedByUid: firebaseUser?.uid || currentUser.uid,
-      updatedAt: now,
-      auditLog: [
-        {
-          action: 'DERIVADA',
-          byUserName: currentUser.name,
-          byUserId: currentUser.id,
-          timestamp: now,
-          details: `Derivada de ${previousAssignee} a ${nextAssignee.name}`,
-        },
-        ...(targetTask.auditLog || []),
-      ],
-    };
-
-    void persistTask(nextTask, 'Error al derivar la tarea en Firestore.')
-      .then(saved => {
-        if (saved) setTasks(previous => previous.map(task => (task.id === id ? nextTask : task)));
+    if (!firebaseUser) return;
+    setSyncStatus('syncing');
+    void reassignTaskInFirestore(id, currentUser, firebaseUser.uid, nextAssignee)
+      .then(remoteTask => {
+        setTasks(previous => previous.map(task => (task.id === id ? migrateTaskStatus(remoteTask) : task)));
+        setSyncStatus('synced');
+        setLastWriteError(null);
+      })
+      .catch(error => {
+        const visibleError = firestoreErrorMessage(error, 'Error al derivar la tarea en Firestore.');
+        console.error(visibleError, { taskId: id, error });
+        setSyncStatus('synced');
+        setLastWriteError(visibleError);
       });
   };
 
@@ -673,32 +663,18 @@ setActiveView('inicio');
       return;
     }
 
-    const now = new Date().toISOString();
-    const nextTask: Task = {
-      ...targetTask,
-      status: targetTask.status === 'PENDIENTE' ? 'EN_PROCESO' : targetTask.status,
-      assignee: currentUser.name,
-      assigneeId: currentUser.id,
-      assigneeUid: firebaseUser.uid,
-      lastModifiedBy: currentUser.name,
-      lastModifiedById: currentUser.id,
-      lastModifiedByUid: firebaseUser.uid,
-      updatedAt: now,
-      auditLog: [
-        {
-          action: 'MODIFICADA',
-          byUserName: currentUser.name,
-          byUserId: currentUser.id,
-          timestamp: now,
-          details: `${currentUser.name} se hizo cargo de la tarea`,
-        },
-        ...(targetTask.auditLog || []),
-      ],
-    };
-
-    void persistTask(nextTask, 'Error al tomar la tarea en Firestore.')
-      .then(saved => {
-        if (saved) setTasks(previous => previous.map(task => (task.id === id ? nextTask : task)));
+    setSyncStatus('syncing');
+    void claimTaskInFirestore(id, currentUser, firebaseUser.uid)
+      .then(remoteTask => {
+        setTasks(previous => previous.map(task => (task.id === id ? migrateTaskStatus(remoteTask) : task)));
+        setSyncStatus('synced');
+        setLastWriteError(null);
+      })
+      .catch(error => {
+        const visibleError = firestoreErrorMessage(error, 'Error al tomar la tarea en Firestore.');
+        console.error(visibleError, { taskId: id, error });
+        setSyncStatus('synced');
+        setLastWriteError(visibleError);
       });
   };
 
@@ -1055,6 +1031,7 @@ setActiveView('inicio');
         getUserPermissions,
         syncStatus,
         syncError,
+        lastWriteError,
         isLoadingData,
         notes,
         addNote,
