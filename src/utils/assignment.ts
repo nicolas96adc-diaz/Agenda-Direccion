@@ -7,7 +7,7 @@ const AVAILABLE_LEGACY_ASSIGNEES = new Set([
   'sin responsable',
 ]);
 
-export const DERIVATION_APP_USER_IDS = new Set([
+export const LEADERSHIP_APP_USER_IDS = new Set([
   'user-rodrigo',
   'user-nicolas',
   'user-noemi',
@@ -28,7 +28,11 @@ export function isTaskAvailable(task?: Pick<Task, 'assigneeUid' | 'assignee' | '
 }
 
 export function hasDerivationPermission(user: UserProfile): boolean {
-  return user.active && DERIVATION_APP_USER_IDS.has(user.appUserId || user.id);
+  return user.active && LEADERSHIP_APP_USER_IDS.has(user.appUserId || user.id);
+}
+
+export function isLeadershipProfile(user: UserProfile): boolean {
+  return user.active && LEADERSHIP_APP_USER_IDS.has(user.appUserId || user.id);
 }
 
 export function normalizedAccessLevel(

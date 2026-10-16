@@ -1,5 +1,5 @@
 import { UserProfile, Task } from '../types';
-import { hasDerivationPermission, isTaskAvailable as hasCanonicalAvailability } from './assignment';
+import { hasDerivationPermission, isLeadershipProfile, isTaskAvailable as hasCanonicalAvailability } from './assignment';
 
 export interface TaskPermissions {
   canCreateTask: boolean;
@@ -21,12 +21,13 @@ export function isTaskAssignedToUser(task: Task, user: UserProfile): boolean {
   if (task.assigneeUid && user.uid && task.assigneeUid === user.uid) return true;
   // `assigneeId` is only a compatibility field for documents created before
   // Firebase UID assignment. A visible name is never an authorization input.
-  return !task.assigneeUid && !!task.assigneeId && task.assigneeId === (user.appUserId || user.id);
+  return !task.assigneeUid && !hasCanonicalAvailability(task) && !!task.assigneeId &&
+    task.assigneeId === (user.appUserId || user.id);
 }
 
 export function isTaskCreatedByUser(task: Task, user: UserProfile): boolean {
   if (task.createdByUid && user.uid && task.createdByUid === user.uid) return true;
-  return task.createdById === user.id || (task.createdBy || '').toLowerCase() === user.name.toLowerCase();
+  return !task.createdByUid && task.createdById === (user.appUserId || user.id);
 }
 
 export function isTaskAvailable(task?: Task | null): boolean {
@@ -35,7 +36,7 @@ export function isTaskAvailable(task?: Task | null): boolean {
 
 /** The three people who can administer work created by the whole team. */
 export function isLeadershipUser(user: UserProfile): boolean {
-  return ['user-nicolas', 'user-noemi', 'user-rodrigo'].includes(user.id);
+  return isLeadershipProfile(user);
 }
 
 /**
@@ -68,15 +69,14 @@ export function getPermissions(user: UserProfile, task?: Task | null): TaskPermi
       restrictionReason: !isMeetingOrganizer && !isLeadership ? 'Solo el organizador o la dirección puede modificar esta reunión.' : undefined,
     };
   }
-  const isAdmin = user.id === 'user-rodrigo' || user.accessLevel === 'Administración total';
-  const isOperations = user.id === 'user-nicolas' || user.id === 'user-noemi';
+  const isLeadership = isLeadershipUser(user);
   const isAssignedToUser = !!task && isTaskAssignedToUser(task, user);
   const isOwnAvailableTask = !!task && isTaskAvailable(task) && isTaskCreatedByUser(task, user);
   const ownsTask = isAssignedToUser || isOwnAvailableTask;
-  const canEditOwn = isAdmin || isOperations || ownsTask;
-  const canBlock = isAdmin || isOperations || ownsTask;
-  const canResolve = isAdmin || isOperations || ownsTask;
-  const canRelease = isAdmin || isOperations || ownsTask;
+  const canEditOwn = isLeadership || ownsTask;
+  const canBlock = isLeadership || ownsTask;
+  const canResolve = isLeadership || ownsTask;
+  const canRelease = isLeadership || ownsTask;
 
   return {
     canCreateTask: true,
@@ -85,8 +85,8 @@ export function getPermissions(user: UserProfile, task?: Task | null): TaskPermi
     canChangeAssignee: canAssignOrDeriveTasks(user),
     canResolveTask: canResolve,
     canBlockTask: canBlock,
-    canDeleteTask: isLeadershipUser(user),
-    canToggleFocus: isAdmin || isOperations,
+    canDeleteTask: isLeadership,
+    canToggleFocus: isLeadership,
     canAddCommentOrNote: canEditOwn,
     canClaimTask: !task || isTaskAvailable(task),
     canReleaseTask: canRelease,
@@ -96,9 +96,5 @@ export function getPermissions(user: UserProfile, task?: Task | null): TaskPermi
         ? 'Solo podés editar y bloquear tareas propias.'
         : undefined,
   };
-}
-
-function isAdminForUser(user: UserProfile): boolean {
-  return user.id === 'user-rodrigo' || user.accessLevel === 'Administración total';
 }
 

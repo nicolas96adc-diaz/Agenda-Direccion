@@ -11,7 +11,7 @@ service cloud.firestore {
     function operations() { return active() && appUserId() in ['user-nicolas', 'user-noemi']; }
     function privileged() { return admin() || operations(); }
     // Authorization uses stable app identities, never profile role labels.
-    function canDerive() { return active() && appUserId() in ['user-rodrigo', 'user-nicolas', 'user-noemi']; }
+    function canDerive() { return privileged(); }
 
     function has(data, key) { return data.keys().hasAll([key]); }
     function canonicalAssignee(data) { return has(data, 'assigneeUid') && data.assigneeUid != null && data.assigneeUid != ''; }
@@ -24,9 +24,16 @@ service cloud.firestore {
     function validPriority(data) { return has(data, 'priority') && data.priority in ['NORMAL', 'CRITICA']; }
     function actor(data) { return has(data, 'lastModifiedByUid') && data.lastModifiedByUid == request.auth.uid && has(data, 'updatedAt'); }
     // Legacy ownership can use appUserId; visible names are display-only.
+    function created(data) {
+      return (has(data, 'createdByUid') && data.createdByUid == request.auth.uid) ||
+        (!has(data, 'createdByUid') && has(data, 'createdById') && data.createdById == appUserId());
+    }
     function owns(data) {
-      return (canonicalAssignee(data) && data.assigneeUid == request.auth.uid) ||
-        (!canonicalAssignee(data) && has(data, 'assigneeId') && data.assigneeId == appUserId());
+      return canonicalAssignee(data)
+        ? data.assigneeUid == request.auth.uid
+        : (unassigned(data)
+          ? created(data)
+          : has(data, 'assigneeId') && data.assigneeId == appUserId());
     }
     function immutableTask() {
       return (!has(resource.data, 'id') || (has(request.resource.data, 'id') && request.resource.data.id == resource.data.id)) &&
@@ -64,7 +71,8 @@ service cloud.firestore {
     }
     function activeAssignee(data) {
       return canonicalAssignee(data) && exists(/databases/$(database)/documents/users/$(data.assigneeUid)) &&
-        get(/databases/$(database)/documents/users/$(data.assigneeUid)).data.active == true;
+        get(/databases/$(database)/documents/users/$(data.assigneeUid)).data.active == true &&
+        get(/databases/$(database)/documents/users/$(data.assigneeUid)).data.appUserId == data.assigneeId;
     }
     function validAssignmentWrite() {
       return assignmentFieldsOnly() && actor(request.resource.data) && validStatus(request.resource.data) &&
@@ -78,7 +86,10 @@ service cloud.firestore {
       return canDerive() && validAssignmentWrite() &&
         (!canonicalAssignee(resource.data) || resource.data.assigneeUid != request.resource.data.assigneeUid);
     }
-    function release() { return !unassigned(resource.data) && unassigned(request.resource.data) && (privileged() || owns(resource.data)); }
+    function release() {
+      return assignmentFieldsOnly() && !unassigned(resource.data) && unassigned(request.resource.data) &&
+        (privileged() || owns(resource.data));
+    }
 
     match /users/{uid} {
       allow get: if signedIn() && (uid == request.auth.uid || (active() && privileged()));
@@ -95,7 +106,8 @@ service cloud.firestore {
       allow update: if active() && immutableTask() && validStatus(request.resource.data) && validPriority(request.resource.data) &&
         actor(request.resource.data) && ((groupMeeting(resource.data) && groupMeeting(request.resource.data) &&
           (privileged() || owns(resource.data)) && keepsMeetingOrganizer()) || (!groupMeeting(resource.data) &&
-          (claim() || reassign() || ((privileged() || owns(resource.data)) && (keepsAssignment() || release())))));
+          ((keepsAssignment() && (privileged() || owns(resource.data))) ||
+            (!keepsAssignment() && (claim() || release() || reassign())))));
       allow delete: if privileged();
     }
 
