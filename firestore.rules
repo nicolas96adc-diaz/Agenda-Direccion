@@ -69,14 +69,13 @@ service cloud.firestore {
         'lastModifiedBy', 'lastModifiedById', 'lastModifiedByUid', 'updatedAt', 'auditLog'
       ]);
     }
-    function activeAssignee(data) {
+    function existingAssignee(data) {
       return canonicalAssignee(data) && exists(/databases/$(database)/documents/users/$(data.assigneeUid)) &&
-        get(/databases/$(database)/documents/users/$(data.assigneeUid)).data.active == true &&
         get(/databases/$(database)/documents/users/$(data.assigneeUid)).data.appUserId == data.assigneeId;
     }
     function validAssignmentWrite() {
       return assignmentFieldsOnly() && actor(request.resource.data) && validStatus(request.resource.data) &&
-        validPriority(request.resource.data) && activeAssignee(request.resource.data);
+        validPriority(request.resource.data) && existingAssignee(request.resource.data);
     }
     function claim() {
       return unassigned(resource.data) && validAssignmentWrite() && request.resource.data.assigneeUid == request.auth.uid &&

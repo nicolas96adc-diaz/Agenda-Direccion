@@ -37,8 +37,7 @@ function toUserProfile(documentId: string, data: Partial<FirestoreUserProfile>):
     !data.email ||
     !data.appUserId ||
     !data.name ||
-    !data.role ||
-    typeof data.active !== 'boolean'
+    !data.role
   ) {
     return null;
   }
@@ -52,7 +51,7 @@ function toUserProfile(documentId: string, data: Partial<FirestoreUserProfile>):
     shortName: data.shortName || data.name.split(' ')[0],
     role: data.role,
     accessLevel: normalizedAccessLevel(data.appUserId, data.accessLevel),
-    active: data.active,
+    active: data.active === true,
   };
 }
 
@@ -101,13 +100,13 @@ export async function getUserProfileByUid(uid: string): Promise<UserProfile | nu
   return profile;
 }
 
-/** Only leadership accounts may read this collection; callers keep the current
- * profile-only behavior when that permission is not available. */
-export async function getActiveUserProfiles(): Promise<UserProfile[]> {
+/** Only leadership accounts may read this collection. Every valid profile is
+ * returned because an inactive member may still receive assigned work. */
+export async function getTeamUserProfiles(): Promise<UserProfile[]> {
   const snapshot = await getDocs(collection(db, USERS_COLLECTION));
   return snapshot.docs
     .map(item => toUserProfile(item.id, item.data() as Partial<FirestoreUserProfile>))
-    .filter((profile): profile is UserProfile => profile !== null && profile.active);
+    .filter((profile): profile is UserProfile => profile !== null);
 }
 
 function releaseAcknowledgementId(uid: string, version: string) {
@@ -257,7 +256,7 @@ export async function reassignTaskInFirestore(
   actorUid: string,
   assignee: UserProfile,
 ): Promise<Task> {
-  if (!assignee.uid || !assignee.active) throw new Error('El destino debe ser un integrante activo con UID Firebase.');
+  if (!assignee.uid) throw new Error('El destino debe ser un integrante existente con UID Firebase.');
 
   return runTransaction(db, async transaction => {
     const reference = doc(db, TASKS_COLLECTION, taskId);

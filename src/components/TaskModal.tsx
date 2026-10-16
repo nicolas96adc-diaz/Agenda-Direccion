@@ -53,7 +53,7 @@ export const TaskModal: React.FC = () => {
   const assignee = editingTask?.assignee || '';
   const isAvailable = isTaskAvailable(editingTask);
   const isGroupMeeting = (editingTask?.kind || kind) === 'REUNION_GRUPO';
-  const activeAssignees = users.filter(user => user.active && user.uid);
+  const assignableTeamMembers = users.filter(user => user.uid);
 
   useEffect(() => {
     setIsConfirmingDelete(false);
@@ -370,7 +370,7 @@ export const TaskModal: React.FC = () => {
               <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2.5">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="text-xs sm:text-sm font-black text-slate-900">{assignee || 'Disponible'}</span>
-                  <span className="text-[11px] font-medium text-slate-500">Derivar a un integrante activo</span>
+                  <span className="text-[11px] font-medium text-slate-500">Derivar a un integrante del equipo</span>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <select
@@ -381,7 +381,7 @@ export const TaskModal: React.FC = () => {
                     aria-label="Derivar tarea a"
                   >
                     <option value="">Elegir integrante…</option>
-                    {activeAssignees.map(user => (
+                    {assignableTeamMembers.map(user => (
                       <option key={user.id} value={user.id}>{user.name}</option>
                     ))}
                   </select>

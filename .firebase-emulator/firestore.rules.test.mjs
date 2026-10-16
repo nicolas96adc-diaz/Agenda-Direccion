@@ -57,6 +57,13 @@ async function seed(data = baseTask) {
       appUserId: 'user-gabriela',
       name: 'Gabriela',
     });
+    await setDoc(doc(db, 'users/uid-yasku'), {
+      active: false,
+      appUserId: 'user-yasku',
+      name: 'Yasku',
+      role: 'Coordinador de Sistemas y Tecnología',
+      accessLevel: 'Responsable de Sistemas',
+    });
     await setDoc(doc(db, 'tasks/task-1'), data);
   });
 }
@@ -208,7 +215,7 @@ test('4. Nico crea una tarea', async () => {
   )));
 });
 
-test('5. Nico delega a cualquier usuario activo mediante appUserId', async () => {
+test('5. Nico delega a un integrante existente inactivo mediante appUserId', async () => {
   await environment.clearFirestore();
   await seed({
     ...baseTask,
@@ -219,13 +226,13 @@ test('5. Nico delega a cualquier usuario activo mediante appUserId', async () =>
   });
   const db = environment.authenticatedContext('uid-nicolas').firestore();
   await assertSucceeds(updateDoc(doc(db, 'tasks/task-1'), {
-    ...assignmentPatch('uid-target', 'user-noemi', 'Noemí'),
+    ...assignmentPatch('uid-yasku', 'user-yasku', 'Yasku'),
     lastModifiedBy: 'Nicolás',
     lastModifiedById: 'user-nicolas',
     lastModifiedByUid: 'uid-nicolas',
   }));
   const saved = await assertSucceeds(getDoc(doc(db, 'tasks/task-1')));
-  if (saved.data()?.assigneeId !== 'user-noemi' || saved.data()?.assigneeUid !== 'uid-target') {
+  if (saved.data()?.assigneeId !== 'user-yasku' || saved.data()?.assigneeUid !== 'uid-yasku') {
     throw new Error('La derivación no quedó persistida con appUserId y UID.');
   }
 });
@@ -234,7 +241,7 @@ test('6. Nico modifica una tarea ajena', async () => {
   await leadershipCanModify('uid-nicolas', 'user-nicolas', 'Nicolás');
 });
 
-test('7. Rodrigo delega a cualquier usuario activo', async () => {
+test('7. Rodrigo delega a cualquier integrante existente', async () => {
   await leadershipCanDelegate('uid-rodrigo', 'user-rodrigo', 'Rodrigo');
 });
 
@@ -242,7 +249,7 @@ test('8. Rodrigo modifica una tarea ajena', async () => {
   await leadershipCanModify('uid-rodrigo', 'user-rodrigo', 'Rodrigo');
 });
 
-test('9. Noemí delega a cualquier usuario activo', async () => {
+test('9. Noemí delega a cualquier integrante existente', async () => {
   await leadershipCanDelegate('uid-target', 'user-noemi', 'Noemí');
 });
 
@@ -320,4 +327,22 @@ test('13. assignee null es consistente en creación, listado y toma', async () =
   if (claimed.data()?.assigneeUid !== 'uid-claimant') {
     throw new Error('La tarea con assignee=null no pudo tomarse de forma consistente.');
   }
+});
+
+test('14. recibir una tarea no otorga permisos administrativos al destinatario', async () => {
+  await environment.clearFirestore();
+  await seed({
+    ...baseTask,
+    assigneeUid: 'uid-yasku',
+    assigneeId: 'user-yasku',
+    assignee: 'Yasku',
+    status: 'EN_PROCESO',
+  });
+  const db = environment.authenticatedContext('uid-yasku').firestore();
+  await assertFails(updateDoc(doc(db, 'tasks/task-1'), {
+    ...assignmentPatch('uid-claimant', 'user-laura', 'Laura'),
+    lastModifiedBy: 'Yasku',
+    lastModifiedById: 'user-yasku',
+    lastModifiedByUid: 'uid-yasku',
+  }));
 });

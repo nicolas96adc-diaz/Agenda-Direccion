@@ -20,7 +20,7 @@ import {
   cancelMeetingAttendance,
   fetchAllFromFirestore,
   getUserProfileByUid,
-  getActiveUserProfiles,
+  getTeamUserProfiles,
   claimTaskInFirestore,
   reassignTaskInFirestore,
 } from '../services/firestoreSync';
@@ -234,9 +234,9 @@ await signOutFirebase();
 setActiveView('inicio');
 
         if (canAssignOrDeriveTasks(profile)) {
-          void getActiveUserProfiles()
+          void getTeamUserProfiles()
             .then(profiles => setUsers(mergeUsers(profiles)))
-            .catch(error => console.warn('No se pudo cargar el listado de integrantes activos:', error));
+            .catch(error => console.warn('No se pudo cargar el listado de integrantes:', error));
         }
       } catch (error) {
         console.warn('No se pudo cargar el perfil Firebase:', error);
@@ -622,9 +622,9 @@ setActiveView('inicio');
 
   const reassignTask = (id: string, assigneeId: string) => {
     const targetTask = tasks.find(task => task.id === id);
-    const nextAssignee = users.find(user => user.id === assigneeId && user.active);
+    const nextAssignee = users.find(user => user.id === assigneeId && user.uid);
     if (!targetTask || !nextAssignee) {
-      alert('Elegí un integrante activo para derivar la tarea.');
+      alert('Elegí un integrante existente para derivar la tarea.');
       return;
     }
 
